@@ -7,3 +7,8 @@ class DumpUrl(Url):
     class Meta:
         verbose_name = "Dump URL"
         verbose_name_plural = "Dump URLs"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Ensure it's only called on create
+            super().save(*args, **kwargs)  # Save the parent `Url` entry
+        super().save(*args, **kwargs)
