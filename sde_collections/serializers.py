@@ -3,7 +3,6 @@ from rest_framework import serializers
 from .models.candidate_url import CandidateURL
 from .models.collection import Collection, WorkflowHistory
 from .models.collection_choice_fields import Divisions, DocumentTypes
-from .models.curated_url import CuratedUrl
 from .models.pattern import (
     DivisionPattern,
     DocumentTypePattern,
@@ -11,6 +10,7 @@ from .models.pattern import (
     IncludePattern,
     TitlePattern,
 )
+from .models.url import CuratedUrl
 
 
 class CollectionSerializer(serializers.ModelSerializer):
