@@ -10,10 +10,7 @@ from django.core import management
 from config import celery_app
 
 from .models.collection import Collection, WorkflowStatusChoices
-from .models.curated_url import CuratedUrl
-from .models.delta_url import DeltaUrl
-from .models.dump_url import DumpUrl
-from .models.url import Url
+from .models.url import CuratedUrl, DeltaUrl, DumpUrl, Url
 from .sinequa_api import Api
 from .utils.github_helper import GitHubHandler
 
