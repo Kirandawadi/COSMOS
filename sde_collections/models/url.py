@@ -83,3 +83,34 @@ class Url(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+
+class DumpUrl(Url):
+    """Model for storing all the imported URLs before separating them into delta URLs and Curated URLs."""
+
+    class Meta:
+        verbose_name = "Dump URL"
+        verbose_name_plural = "Dump URLs"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Ensure it's only called on create
+            super().save(*args, **kwargs)  # Save the parent `Url` entry
+        super().save(*args, **kwargs)
+
+
+class DeltaUrl(Url):
+    """Model for storing delta URLs for curation purposes"""
+
+    delete = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Delta URL"
+        verbose_name_plural = "Delta URLs"
+
+
+class CuratedUrl(Url):
+    """Model for storing curated and live URLs after the curation process."""
+
+    class Meta:
+        verbose_name = "Curated URL"
+        verbose_name_plural = "Curated URLs"
