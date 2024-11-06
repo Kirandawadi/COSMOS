@@ -34,13 +34,15 @@ from .models.pattern import (
     IncludePattern,
     TitlePattern,
 )
-from .models.url import CuratedUrl
+from .models.url import CuratedUrl, DeltaUrl
 from .serializers import (
     CandidateURLBulkCreateSerializer,
     CandidateURLSerializer,
     CollectionReadSerializer,
     CollectionSerializer,
     CuratedUrlAPISerializer,
+    CuratedURLSerializer,
+    DeltaURLSerializer,
     DivisionPatternSerializer,
     DocumentTypePatternSerializer,
     ExcludePatternSerializer,
@@ -281,6 +283,66 @@ class CandidateURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
         if division:
             candidate_url.division = division
             candidate_url.save()
+            return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
+
+
+class CuratedURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = CuratedUrl.objects.all()
+    serializer_class = CuratedURLSerializer
+
+    def _filter_by_is_excluded(self, queryset, is_excluded):
+        if is_excluded == "false":
+            queryset = queryset.filter(excluded=False)
+        elif is_excluded == "true":
+            queryset = queryset.exclude(excluded=False)
+        return queryset
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.method == "GET":
+            # Filter based on exclusion status
+            is_excluded = self.request.GET.get("is_excluded")
+            if is_excluded:
+                queryset = self._filter_by_is_excluded(queryset, is_excluded)
+        return queryset.order_by("url")
+
+    def update_division(self, request, pk=None):
+        curated_url = get_object_or_404(CuratedUrl, pk=pk)
+        division = request.data.get("division")
+        if division:
+            curated_url.division = division
+            curated_url.save()
+            return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
+
+
+class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = DeltaUrl.objects.all()
+    serializer_class = DeltaURLSerializer
+
+    def _filter_by_is_excluded(self, queryset, is_excluded):
+        if is_excluded == "false":
+            queryset = queryset.filter(excluded=False)
+        elif is_excluded == "true":
+            queryset = queryset.exclude(excluded=False)
+        return queryset
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.request.method == "GET":
+            # Filter based on exclusion status
+            is_excluded = self.request.GET.get("is_excluded")
+            if is_excluded:
+                queryset = self._filter_by_is_excluded(queryset, is_excluded)
+        return queryset.order_by("url")
+
+    def update_division(self, request, pk=None):
+        delta_url = get_object_or_404(DeltaUrl, pk=pk)
+        division = request.data.get("division")
+        if division:
+            delta_url.division = division
+            delta_url.save()
             return Response(status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
 

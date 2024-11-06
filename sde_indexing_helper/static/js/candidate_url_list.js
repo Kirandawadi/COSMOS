@@ -322,6 +322,436 @@ function initializeDataTable() {
     }, 1000)
   );
 
+  var curated_urls_table = $("#curated_urls_table").DataTable({
+    pageLength: 100,
+    colReorder: true,
+    stateSave: true,
+    layout: {
+      bottomEnd: "inputPaging",
+      topEnd: null,
+      topStart: {
+        info: true,
+        pageLength: {
+          menu: [
+            [25, 50, 100, 500],
+            ["Show 25", "Show 50", "Show 100", "Show 500"],
+          ],
+        },
+        buttons: [
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: [0, 11, 2, 12, 10],
+            },
+            customize: function (csv) {
+              var lines = csv.split("\n");
+
+              // Reorder the header columns
+              var headers = lines[0].split(",");
+              headers[4] = "New Title";
+              var reorderedHeaders = [
+                headers[0],
+                headers[3],
+                headers[1],
+                headers[4],
+                headers[5],
+                headers[2],
+              ];
+              lines[0] = reorderedHeaders.join(",");
+
+              const appliedFilt = [
+                [`URL:`, `${$("#curatedUrlFilter").val()}`.trim()],
+                [`Exclude:`, `${$(".dropdown-1").val()}`.trim()],
+                [
+                  `Scraped Title:`,
+                  `${$("#curatedScrapedTitleFilter").val()}`.trim(),
+                ],
+                [`New Title:`, `${$("#curatedNewTitleFilter").val()}`.trim()],
+                [`Document Type:`, `${dict[$(".dropdown-4").val()]}`.trim()],
+                [`Division By URL:`, `${dict[$(".dropdown-5").val()]}`.trim()],
+              ];
+
+              const filtersAreEmpty = appliedFilt.every((filter) => {
+                return filter[1] === "" || filter[1] === "undefined";
+              });
+
+              // Remove the second row with the filters
+              if (lines.length > 2) {
+                lines.splice(1, 1);
+              }
+              let alteredLines = [];
+              lines.forEach((line) => {
+                let newLine = "";
+                newLine = line.replace("open_in_new", "");
+                alteredLines.push(newLine);
+              });
+
+              if (filtersAreEmpty) return alteredLines.join("\n");
+              else {
+                // Add filter information to the first row
+                const secondRowFilters = [
+                  "Export of SDE Curated URLs",
+                  `"(Applied Filters: ${appliedFilt
+                    .reduce((acc, curr) => {
+                      if (
+                        curr[1] !== " undefined" &&
+                        curr[1] !== " " &&
+                        curr[1] !== "" &&
+                        curr[1] !== "undefined"
+                      ) {
+                        acc = `${acc}, ${curr[0]} ${curr[1]}`;
+                      }
+                      return acc;
+                    }, "")
+                    .slice(2)})"`,
+                ];
+
+                var appliedFiltersInfo = secondRowFilters.join("\n");
+                return appliedFiltersInfo + "\n" + alteredLines.join("\n");
+              }
+            },
+          },
+          "spacer",
+          {
+            text: "Customize Columns",
+            className: "customizeColumns",
+            action: function () {
+              modalContents("#curated_urls_table");
+            },
+          },
+        ],
+      },
+    },
+    serverSide: true,
+    orderCellsTop: true,
+    pagingType: "input",
+    rowId: "url",
+    stateLoadCallback: function (settings) {
+      var state = JSON.parse(
+        localStorage.getItem(
+          "DataTables_curated_urls_" + window.location.pathname
+        )
+      );
+      if (!state) {
+        settings.oInit.pageLength = 1;
+      }
+      return state;
+    },
+    ajax: {
+      url: `/api/curated-urls/?format=datatables&collection_id=${collection_id}`,
+      data: function (d) {
+        d.is_excluded = $("#filter-checkbox").is(":checked") ? false : null;
+      },
+    },
+    initComplete: function (data) {
+      const addDropdownSelect = [1, 4, 5];
+      const dict = {
+        1: "Images",
+        2: "Data",
+        3: "Documentation",
+        4: "Software and Tools",
+        5: "Missions and Instruments",
+      };
+      this.api()
+        .columns()
+        .every(function (index) {
+          let column = this;
+          if (addDropdownSelect.includes(index)) {
+            $("thead tr td select.dropdown-" + index).on("change", function () {
+              var val = $.fn.dataTable.util.escapeRegex($(this).val());
+              column.search(val ? "^" + val + "$" : "", true, false).draw();
+            });
+          }
+        });
+    },
+
+    columns: [
+      getCuratedURLColumn(),
+      getExcludedColumn(true_icon, false_icon),
+      getScrapedTitleColumn(),
+      getCuratedGeneratedTitleColumn(),
+      getDocumentTypeColumn(),
+      getDivisionColumn(),
+      { data: "id", visible: false, searchable: false },
+      { data: "generated_title_id", visible: false, searchable: false },
+      { data: "match_pattern_type", visible: false, searchable: false },
+      { data: "curated_urls_count", visible: false, searchable: false },
+      { data: "excluded", visible: false, searchable: false },
+      {
+        data: null,
+        render: function (data, type, row) {
+          if (!row.document_type) return "Select";
+          return dict[row.document_type];
+        },
+        visible: false,
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          const excludedDict = {
+            true: "Yes",
+            false: "No",
+          };
+          return excludedDict[row.excluded];
+        },
+        visible: false,
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          return row.generated_title;
+        },
+        visible: false,
+      },
+      // ...(is_multi_division === 'true' ? [getDivisionColumn()] : []),
+      // getDivisionColumn(),
+    ],
+    createdRow: function (row, data, dataIndex) {
+      if (data["excluded"]) {
+        $(row).attr(
+          "style",
+          "background-color: rgba(255, 61, 87, 0.36) !important"
+        );
+      }
+    },
+  });
+
+  $("#curatedUrlFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      curated_urls_table.columns(0).search(this.value).draw();
+    }, 1000)
+  );
+
+  $("#curatedScrapedTitleFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      curated_urls_table.columns(2).search(this.value).draw();
+    }, 1000)
+  );
+
+  $("#curatedNewTitleFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      curated_urls_table.columns(3).search(this.value).draw();
+    }, 1000)
+  );
+
+  var delta_urls_table = $("#delta_urls_table").DataTable({
+    pageLength: 100,
+    colReorder: true,
+    stateSave: true,
+    layout: {
+      bottomEnd: "inputPaging",
+      topEnd: null,
+      topStart: {
+        info: true,
+        pageLength: {
+          menu: [
+            [25, 50, 100, 500],
+            ["Show 25", "Show 50", "Show 100", "Show 500"],
+          ],
+        },
+        buttons: [
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: [0, 11, 2, 12, 10],
+            },
+            customize: function (csv) {
+              var lines = csv.split("\n");
+
+              // Reorder the header columns
+              var headers = lines[0].split(",");
+              headers[4] = "New Title";
+              var reorderedHeaders = [
+                headers[0],
+                headers[3],
+                headers[1],
+                headers[4],
+                headers[5],
+                headers[2],
+              ];
+              lines[0] = reorderedHeaders.join(",");
+
+              const appliedFilt = [
+                [`URL:`, `${$("#deltaUrlFilter").val()}`.trim()],
+                [`Exclude:`, `${$(".dropdown-1").val()}`.trim()],
+                [
+                  `Scraped Title:`,
+                  `${$("#deltaScrapedTitleFilter").val()}`.trim(),
+                ],
+                [`New Title:`, `${$("#deltaNewTitleFilter").val()}`.trim()],
+                [`Document Type:`, `${dict[$(".dropdown-4").val()]}`.trim()],
+                [`Division By URL:`, `${dict[$(".dropdown-5").val()]}`.trim()],
+              ];
+
+              const filtersAreEmpty = appliedFilt.every((filter) => {
+                return filter[1] === "" || filter[1] === "undefined";
+              });
+
+              // Remove the second row with the filters
+              if (lines.length > 2) {
+                lines.splice(1, 1);
+              }
+              let alteredLines = [];
+              lines.forEach((line) => {
+                let newLine = "";
+                newLine = line.replace("open_in_new", "");
+                alteredLines.push(newLine);
+              });
+
+              if (filtersAreEmpty) return alteredLines.join("\n");
+              else {
+                // Add filter information to the first row
+                const secondRowFilters = [
+                  "Export of SDE Delta URLs",
+                  `"(Applied Filters: ${appliedFilt
+                    .reduce((acc, curr) => {
+                      if (
+                        curr[1] !== " undefined" &&
+                        curr[1] !== " " &&
+                        curr[1] !== "" &&
+                        curr[1] !== "undefined"
+                      ) {
+                        acc = `${acc}, ${curr[0]} ${curr[1]}`;
+                      }
+                      return acc;
+                    }, "")
+                    .slice(2)})"`,
+                ];
+
+                var appliedFiltersInfo = secondRowFilters.join("\n");
+                return appliedFiltersInfo + "\n" + alteredLines.join("\n");
+              }
+            },
+          },
+          "spacer",
+          {
+            text: "Customize Columns",
+            className: "customizeColumns",
+            action: function () {
+              modalContents("#delta_urls_table");
+            },
+          },
+        ],
+      },
+    },
+    serverSide: true,
+    orderCellsTop: true,
+    pagingType: "input",
+    rowId: "url",
+    stateLoadCallback: function (settings) {
+      var state = JSON.parse(
+        localStorage.getItem(
+          "DataTables_delta_urls_" + window.location.pathname
+        )
+      );
+      if (!state) {
+        settings.oInit.pageLength = 1;
+      }
+      return state;
+    },
+    ajax: {
+      url: `/api/delta-urls/?format=datatables&collection_id=${collection_id}`,
+      data: function (d) {
+        d.is_excluded = $("#filter-checkbox").is(":checked") ? false : null;
+      },
+    },
+    initComplete: function (data) {
+      const addDropdownSelect = [1, 4, 5];
+      const dict = {
+        1: "Images",
+        2: "Data",
+        3: "Documentation",
+        4: "Software and Tools",
+        5: "Missions and Instruments",
+      };
+      this.api()
+        .columns()
+        .every(function (index) {
+          let column = this;
+          if (addDropdownSelect.includes(index)) {
+            $("thead tr td select.dropdown-" + index).on("change", function () {
+              var val = $.fn.dataTable.util.escapeRegex($(this).val());
+              column.search(val ? "^" + val + "$" : "", true, false).draw();
+            });
+          }
+        });
+    },
+
+    columns: [
+      getDeltaURLColumn(),
+      getExcludedColumn(true_icon, false_icon),
+      getScrapedTitleColumn(),
+      getDeltaGeneratedTitleColumn(),
+      getDocumentTypeColumn(),
+      getDivisionColumn(),
+      { data: "id", visible: false, searchable: false },
+      { data: "generated_title_id", visible: false, searchable: false },
+      { data: "match_pattern_type", visible: false, searchable: false },
+      { data: "delta_urls_count", visible: false, searchable: false },
+      { data: "excluded", visible: false, searchable: false },
+      {
+        data: null,
+        render: function (data, type, row) {
+          if (!row.document_type) return "Select";
+          return dict[row.document_type];
+        },
+        visible: false,
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          const excludedDict = {
+            true: "Yes",
+            false: "No",
+          };
+          return excludedDict[row.excluded];
+        },
+        visible: false,
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          return row.generated_title;
+        },
+        visible: false,
+      },
+      // ...(is_multi_division === 'true' ? [getDivisionColumn()] : []),
+      // getDivisionColumn(),
+    ],
+    createdRow: function (row, data, dataIndex) {
+      if (data["excluded"]) {
+        $(row).attr(
+          "style",
+          "background-color: rgba(255, 61, 87, 0.36) !important"
+        );
+      }
+    },
+  });
+
+  $("#deltaUrlFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      delta_urls_table.columns(0).search(this.value).draw();
+    }, 1000)
+  );
+
+  $("#deltaScrapedTitleFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      delta_urls_table.columns(2).search(this.value).draw();
+    }, 1000)
+  );
+
+  $("#deltaNewTitleFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      delta_urls_table.columns(3).search(this.value).draw();
+    }, 1000)
+  );
+
   var exclude_patterns_table = $("#exclude_patterns_table").DataTable({
     // scrollY: true,
     dom: "lBrtip",
@@ -682,96 +1112,96 @@ function initializeDataTable() {
 var division_patterns_table = $("#division_patterns_table").DataTable({
   dom: "lBrtip",
   buttons: [
-      {
-          text: "Add Pattern",
-          className: "addPattern",
-          action: function () {
-              $modal = $("#divisionPatternModal").modal();
-          },
+    {
+      text: "Add Pattern",
+      className: "addPattern",
+      action: function () {
+        $modal = $("#divisionPatternModal").modal();
       },
-      {
-          text: "Customize Columns",
-          className: "customizeColumns",
-          action: function () {
-              modalContents("#division_patterns_table");
-          },
+    },
+    {
+      text: "Customize Columns",
+      className: "customizeColumns",
+      action: function () {
+        modalContents("#division_patterns_table");
       },
+    },
   ],
   lengthMenu: [
-      [25, 50, 100, 500],
-      ["Show 25", "Show 50", "Show 100", "Show 500"],
+    [25, 50, 100, 500],
+    ["Show 25", "Show 50", "Show 100", "Show 500"],
   ],
   orderCellsTop: true,
   pageLength: 100,
   ajax: `/api/division-patterns/?format=datatables&collection_id=${collection_id}`,
   initComplete: function (data) {
-      this.api()
-          .columns()
-          .every(function (index) {
-              var table = $("#division_patterns_table").DataTable();
+    this.api()
+      .columns()
+      .every(function (index) {
+        var table = $("#division_patterns_table").DataTable();
 
-              let addDropdownSelect = {
-                  1: {
-                      columnToSearch: 6,
-                      matchPattern: {
-                          "Individual URL Pattern": 1,
-                          "Multi-URL Pattern": 2,
-                      },
-                  },
-                  2: {
-                      columnToSearch: 7,
-                      matchPattern: {
-                          "Astrophysics": 1,
-                          "Biological and Physical Sciences": 2,
-                          "Earth Science": 3,
-                          "Heliophysics": 4,
-                          "Planetary Science": 5,
-                      },
-                  },
-              };
+        let addDropdownSelect = {
+          1: {
+            columnToSearch: 6,
+            matchPattern: {
+              "Individual URL Pattern": 1,
+              "Multi-URL Pattern": 2,
+            },
+          },
+          2: {
+            columnToSearch: 7,
+            matchPattern: {
+              "Astrophysics": 1,
+              "Biological and Physical Sciences": 2,
+              "Earth Science": 3,
+              "Heliophysics": 4,
+              "Planetary Science": 5,
+            },
+          },
+        };
 
-              let column = this;
-              if (column.data().length === 0) {
-                  $(`#division-patterns-dropdown-${index}`).prop("disabled", true);
-              } else if (index in addDropdownSelect) {
-                  $("#division-patterns-dropdown-" + index).on("change", function () {
-                      let col = addDropdownSelect[index].columnToSearch;
-                      let searchInput =
-                          addDropdownSelect[index].matchPattern[$(this).val()];
-                      if ($(this).val() === "" || $(this).val() === undefined)
-                          table.columns(col).search("").draw();
-                      else {
-                          table.columns(col).search(searchInput).draw();
-                      }
-                  });
-              }
+        let column = this;
+        if (column.data().length === 0) {
+          $(`#division-patterns-dropdown-${index}`).prop("disabled", true);
+        } else if (index in addDropdownSelect) {
+          $("#division-patterns-dropdown-" + index).on("change", function () {
+            let col = addDropdownSelect[index].columnToSearch;
+            let searchInput =
+              addDropdownSelect[index].matchPattern[$(this).val()];
+            if ($(this).val() === "" || $(this).val() === undefined)
+              table.columns(col).search("").draw();
+            else {
+              table.columns(col).search(searchInput).draw();
+            }
           });
+        }
+      });
   },
 
   columns: [
-      { data: "match_pattern", class: "whiteText" },
-      {
-          data: "match_pattern_type_display",
-          class: "text-center whiteText",
-          sortable: false,
+    { data: "match_pattern", class: "whiteText" },
+    {
+      data: "match_pattern_type_display",
+      class: "text-center whiteText",
+      sortable: false,
+    },
+    { data: "division_display", class: "whiteText" },
+    {
+      data: "candidate_urls_count",
+      class: "text-center whiteText",
+      sortable: true,
+    },
+    {
+      data: null,
+      sortable: false,
+      class: "text-center",
+      render: function (data, type, row) {
+        return `<button class="btn btn-danger btn-sm delete-division-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
       },
-      { data: "division_display", class: "whiteText" },
-      {
-          data: "candidate_urls_count",
-          class: "text-center whiteText",
-          sortable: true,
-      },
-      {
-          data: null,
-          sortable: false,
-          class: "text-center",
-          render: function (data, type, row) {
-              return `<button class="btn btn-danger btn-sm delete-division-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
-          },
-      },
-      { data: "id", visible: false, searchable: false },
-      { data: "match_pattern_type", visible: false },
-      { data: "division", visible: false },
+    },
+    { data: "id", visible: false, searchable: false },
+    { data: "match_pattern_type", visible: false },
+    { data: "division", visible: false },
   ],
 });
 
@@ -841,8 +1271,8 @@ function getDivisionColumn() {
           <div class="dropdown-menu">
             <a class="dropdown-item division_select" href="#" value="0">None</a>
             ${Object.entries(divisionDict).map(([value, name]) => {
-              return `<a class="dropdown-item division_select" href="#" value="${value}">${name}</a>`;
-            }).join('')}
+        return `<a class="dropdown-item division_select" href="#" value="${value}">${name}</a>`;
+      }).join('')}
           </div>
         </div>`;
     },
@@ -882,7 +1312,7 @@ $("#division_pattern_form").on("submit", function (e) {
   inputs = {};
   input_serialized = $(this).serializeArray();
   input_serialized.forEach((field) => {
-      inputs[field.name] = field.value;
+    inputs[field.name] = field.value;
   });
 
   console.log("Form Inputs:", inputs);  // Debugging line to check inputs
@@ -902,43 +1332,43 @@ $(".division_form_select").on("click", function (e) {
 
 function postDivisionPatterns(match_pattern, match_pattern_type, division) {
   if (!match_pattern) {
-      toastr.error("Please highlight a pattern to add division.");
-      return;
+    toastr.error("Please highlight a pattern to add division.");
+    return;
   }
 
   $.ajax({
-      url: "/api/division-patterns/",
-      type: "POST",
-      data: {
-          collection: collection_id,
-          match_pattern: match_pattern,
-          match_pattern_type: match_pattern_type,
-          division: division,
-          csrfmiddlewaretoken: csrftoken,
-      },
-      success: function (data) {
-          $("#candidate_urls_table").DataTable().ajax.reload(null, false);
-          $("#division_patterns_table").DataTable().ajax.reload(null, false);
-          if (currentTab === "") { // Only add a notification if we are on the first tab
-              newDivisionPatternsCount = newDivisionPatternsCount + 1;
-              $("#divisionPatternsTab").html(
-                  `Division Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
-                  newDivisionPatternsCount + " new" +
-                  `</span>`
-              );
-          }
-      },
-      error: function (xhr, status, error) {
-          var errorMessage = xhr.responseText;
-          if (
-              errorMessage ==
-              '{"error":{"non_field_errors":["The fields collection, match_pattern must make a unique set."]},"status_code":400}'
-          ) {
-              toastr.success("Pattern already exists");
-              return;
-          }
-          toastr.error(errorMessage);
-      },
+    url: "/api/division-patterns/",
+    type: "POST",
+    data: {
+      collection: collection_id,
+      match_pattern: match_pattern,
+      match_pattern_type: match_pattern_type,
+      division: division,
+      csrfmiddlewaretoken: csrftoken,
+    },
+    success: function (data) {
+      $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+      $("#division_patterns_table").DataTable().ajax.reload(null, false);
+      if (currentTab === "") { // Only add a notification if we are on the first tab
+        newDivisionPatternsCount = newDivisionPatternsCount + 1;
+        $("#divisionPatternsTab").html(
+          `Division Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
+          newDivisionPatternsCount + " new" +
+          `</span>`
+        );
+      }
+    },
+    error: function (xhr, status, error) {
+      var errorMessage = xhr.responseText;
+      if (
+        errorMessage ==
+        '{"error":{"non_field_errors":["The fields collection, match_pattern must make a unique set."]},"status_code":400}'
+      ) {
+        toastr.success("Pattern already exists");
+        return;
+      }
+      toastr.error(errorMessage);
+    },
   });
 }
 
@@ -950,9 +1380,36 @@ function getURLColumn() {
       return `<div class="url-cell"><span class="candidate_url nameStyling">${remove_protocol(
         data
       )}</span>
-      <a target="_blank" href="${data}" data-url="/api/candidate-urls/${
-        row["id"]
-      }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
+      <a target="_blank" href="${data}" data-url="/api/candidate-urls/${row["id"]
+        }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
+    },
+  };
+}
+
+function getCuratedURLColumn() {
+  return {
+    data: "url",
+    width: "30%",
+    render: function (data, type, row) {
+      return `<div class="url-cell"><span class="curated_url nameStyling">${remove_protocol(
+        data
+      )}</span>
+      <a target="_blank" href="${data}" data-url="/api/curated-urls/${row["id"]
+        }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
+    },
+  };
+}
+
+function getDeltaURLColumn() {
+  return {
+    data: "url",
+    width: "30%",
+    render: function (data, type, row) {
+      return `<div class="url-cell"><span class="delta_url nameStyling">${remove_protocol(
+        data
+      )}</span>
+      <a target="_blank" href="${data}" data-url="/api/delta-urls/${row["id"]
+        }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
     },
   };
 }
@@ -972,13 +1429,36 @@ function getGeneratedTitleColumn() {
     data: "generated_title",
     width: "20%",
     render: function (data, type, row) {
-      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${
-        row["generated_title_id"]
-      } data-match-pattern-type=${
-        row["match_pattern_type"]
-      } data-candidate-urls-count=${
-        row["candidate_urls_count"]
-      } data-url=${remove_protocol(row["url"])} />`;
+      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${row["generated_title_id"]
+        } data-match-pattern-type=${row["match_pattern_type"]
+        } data-candidate-urls-count=${row["candidate_urls_count"]
+        } data-url=${remove_protocol(row["url"])} />`;
+    },
+  };
+}
+
+function getCuratedGeneratedTitleColumn() {
+  return {
+    data: "generated_title",
+    width: "20%",
+    render: function (data, type, row) {
+      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${row["generated_title_id"]
+        } data-match-pattern-type=${row["match_pattern_type"]
+        } data-curated-urls-count=${row["curated_urls_count"]
+        } data-url=${remove_protocol(row["url"])} />`;
+    },
+  };
+}
+
+function getDeltaGeneratedTitleColumn() {
+  return {
+    data: "generated_title",
+    width: "20%",
+    render: function (data, type, row) {
+      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${row["generated_title_id"]
+        } data-match-pattern-type=${row["match_pattern_type"]
+        } data-delta-urls-count=${row["delta_urls_count"]
+        } data-url=${remove_protocol(row["url"])} />`;
     },
   };
 }
@@ -991,11 +1471,11 @@ function getExcludedColumn(true_icon, false_icon) {
     render: function (data, type, row) {
       return data === true
         ? `<a class="exclude_individual_url" value=${remove_protocol(
-            row["url"]
-          )}>${true_icon}</a>`
+          row["url"]
+        )}>${true_icon}</a>`
         : `<a class="exclude_individual_url" value=${remove_protocol(
-            row["url"]
-          )}>${false_icon}</a>`;
+          row["url"]
+        )}>${false_icon}</a>`;
     },
   };
 }
@@ -1016,8 +1496,8 @@ function getDocumentTypeColumn() {
       button_color = data ? "btn-success" : "btn-secondary";
       return `
             <div class="dropdown document_type_dropdown"  data-match-pattern=${remove_protocol(
-              row["url"]
-            )}>
+        row["url"]
+      )}>
               <button class="btn ${button_color} btn-sm dropdown-toggle selectStyling" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 ${button_text}
               </button>
@@ -1036,10 +1516,10 @@ function getDocumentTypeColumn() {
 
 //template to add enter and escape functionalities to add pattern modals
 function addEnterEscapeKeypress(modalID, formID) {
-  $("body").on("keydown", function(event) {
+  $("body").on("keydown", function (event) {
     let modal = $(modalID);
     let form = $(formID)
-    if(event.key == "Escape" && modal.is(":visible")) {
+    if (event.key == "Escape" && modal.is(":visible")) {
       modal.modal("hide");
     }
     if (event.key == "Enter" && modal.is(":visible")) {
@@ -1249,14 +1729,14 @@ function postDocumentTypePatterns(
     success: function (data) {
       $("#candidate_urls_table").DataTable().ajax.reload(null, false);
       $("#document_type_patterns_table").DataTable().ajax.reload(null, false);
-      if(currentTab === ""){ //Only add a notification if we are on the first tab
-      newDocumentTypePatternsCount = newDocumentTypePatternsCount + 1;
-      $("#documentTypePatternsTab").html(
-        `Document Type Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
+      if (currentTab === "") { //Only add a notification if we are on the first tab
+        newDocumentTypePatternsCount = newDocumentTypePatternsCount + 1;
+        $("#documentTypePatternsTab").html(
+          `Document Type Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
           newDocumentTypePatternsCount + " new" +
           `</span>`
-      );
-    }
+        );
+      }
     },
     error: function (xhr, status, error) {
       var errorMessage = xhr.responseText;
@@ -1300,14 +1780,14 @@ function postExcludePatterns(match_pattern, match_pattern_type = 0, force) {
     success: function (data) {
       $("#candidate_urls_table").DataTable().ajax.reload(null, false);
       $("#exclude_patterns_table").DataTable().ajax.reload(null, false);
-      if(currentTab === ""){ //Only add a notification if we are on the first tab
-      newExcludePatternsCount = newExcludePatternsCount + 1;
-      $("#excludePatternsTab").html(
-        `Exclude Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
+      if (currentTab === "") { //Only add a notification if we are on the first tab
+        newExcludePatternsCount = newExcludePatternsCount + 1;
+        $("#excludePatternsTab").html(
+          `Exclude Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
           newExcludePatternsCount + " new" +
           `</span>`
-      );
-    }
+        );
+      }
     },
     error: function (xhr, status, error) {
       var errorMessage = xhr.responseText;
@@ -1342,14 +1822,14 @@ function postIncludePatterns(match_pattern, match_pattern_type = 0) {
     success: function (data) {
       $("#candidate_urls_table").DataTable().ajax.reload(null, false);
       $("#include_patterns_table").DataTable().ajax.reload(null, false);
-      if(currentTab === ""){ //Only add a notification if we are on the first tab
-      newIncludePatternsCount = newIncludePatternsCount + 1;
-      $("#includePatternsTab").html(
-        `Include Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
+      if (currentTab === "") { //Only add a notification if we are on the first tab
+        newIncludePatternsCount = newIncludePatternsCount + 1;
+        $("#includePatternsTab").html(
+          `Include Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
           newIncludePatternsCount + " new" +
           `</span>`
-      );
-    }
+        );
+      }
     },
     error: function (xhr, status, error) {
       var errorMessage = xhr.responseText;
@@ -1368,40 +1848,40 @@ function postTitlePatterns(
     return;
   }
 
-    $.ajax({
-        url: '/api/title-patterns/',
-        type: "POST",
-        data: {
-            collection: collection_id,
-            match_pattern: match_pattern,
-            match_pattern_type: match_pattern_type,
-            title_pattern: title_pattern,
-            csrfmiddlewaretoken: csrftoken
-        },
-        success: function (data) {
-            $('#candidate_urls_table').DataTable().ajax.reload(null, false);
-            $('#title_patterns_table').DataTable().ajax.reload(null, false);
-            if(currentTab === ""){ //Only add a notification if we are on the first tab
-              newTitlePatternsCount = newTitlePatternsCount + 1;
-              $("#titlePatternsTab").html(
-                `Title Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
-                  newTitlePatternsCount + " new" +
-                  `</span>`
-              );
-            }
-        },
-        error: function (xhr, status, error) {
-            var errorMessage = xhr.responseText;
-            if (errorMessage == '{"error":{"non_field_errors":["The fields collection, match_pattern must make a unique set."]},"status_code":400}') {
-              toastr.success("Pattern already exists");
-              return;
-            }
-            var errorMessages = JSON.parse(errorMessage);
-            Object.entries(errorMessages.error).forEach(([key, value]) => {
-                toastr.error(value, key);
-            });
-        }
-    });
+  $.ajax({
+    url: '/api/title-patterns/',
+    type: "POST",
+    data: {
+      collection: collection_id,
+      match_pattern: match_pattern,
+      match_pattern_type: match_pattern_type,
+      title_pattern: title_pattern,
+      csrfmiddlewaretoken: csrftoken
+    },
+    success: function (data) {
+      $('#candidate_urls_table').DataTable().ajax.reload(null, false);
+      $('#title_patterns_table').DataTable().ajax.reload(null, false);
+      if (currentTab === "") { //Only add a notification if we are on the first tab
+        newTitlePatternsCount = newTitlePatternsCount + 1;
+        $("#titlePatternsTab").html(
+          `Title Patterns <span class="pill notifyBadge badge badge-pill badge-primary">` +
+          newTitlePatternsCount + " new" +
+          `</span>`
+        );
+      }
+    },
+    error: function (xhr, status, error) {
+      var errorMessage = xhr.responseText;
+      if (errorMessage == '{"error":{"non_field_errors":["The fields collection, match_pattern must make a unique set."]},"status_code":400}') {
+        toastr.success("Pattern already exists");
+        return;
+      }
+      var errorMessages = JSON.parse(errorMessage);
+      Object.entries(errorMessages.error).forEach(([key, value]) => {
+        toastr.error(value, key);
+      });
+    }
+  });
 }
 
 function postVisited(url) {
@@ -1415,7 +1895,7 @@ function postVisited(url) {
     headers: {
       "X-CSRFToken": csrftoken,
     },
-    success: function (data) {},
+    success: function (data) { },
   });
 }
 

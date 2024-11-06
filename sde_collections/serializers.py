@@ -10,7 +10,7 @@ from .models.pattern import (
     IncludePattern,
     TitlePattern,
 )
-from .models.url import CuratedUrl
+from .models.url import CuratedUrl, DeltaUrl
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -96,6 +96,94 @@ class CandidateURLSerializer(serializers.ModelSerializer):
             "production_title",
             "present_on_test",
             "present_on_prod",
+        )
+
+
+class CuratedURLSerializer(serializers.ModelSerializer):
+    excluded = serializers.BooleanField(required=False)
+    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
+    division_display = serializers.CharField(source="get_division_display", read_only=True)
+    url = serializers.CharField(required=False)
+    generated_title_id = serializers.SerializerMethodField(read_only=True)
+    match_pattern_type = serializers.SerializerMethodField(read_only=True)
+    curated_urls_count = serializers.SerializerMethodField(read_only=True)
+
+    def get_curated_urls_count(self, obj):
+        titlepattern = obj.titlepattern_urls.last()
+        return titlepattern.curated_urls.count() if titlepattern else 0
+
+    def get_generated_title_id(self, obj):
+        titlepattern = obj.titlepattern_urls.last()
+        return titlepattern.id if titlepattern else None
+
+    def get_match_pattern_type(self, obj):
+        titlepattern = obj.titlepattern_urls.last()
+        return titlepattern.match_pattern_type if titlepattern else None
+
+    class Meta:
+        model = CuratedUrl
+        fields = (
+            "id",
+            "excluded",
+            "url",
+            "scraped_title",
+            "generated_title",
+            "generated_title_id",
+            "match_pattern_type",
+            "curated_urls_count",
+            "document_type",
+            "document_type_display",
+            "division",
+            "division_display",
+            "visited",
+            # "test_title",
+            # "production_title",
+            # "present_on_test",
+            # "present_on_prod",
+        )
+
+
+class DeltaURLSerializer(serializers.ModelSerializer):
+    excluded = serializers.BooleanField(required=False)
+    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
+    division_display = serializers.CharField(source="get_division_display", read_only=True)
+    url = serializers.CharField(required=False)
+    generated_title_id = serializers.SerializerMethodField(read_only=True)
+    match_pattern_type = serializers.SerializerMethodField(read_only=True)
+    delta_urls_count = serializers.SerializerMethodField(read_only=True)
+
+    def get_delta_urls_count(self, obj):
+        titlepattern = obj.titlepattern_urls.last()
+        return titlepattern.delta_urls.count() if titlepattern else 0
+
+    def get_generated_title_id(self, obj):
+        titlepattern = obj.titlepattern_urls.last()
+        return titlepattern.id if titlepattern else None
+
+    def get_match_pattern_type(self, obj):
+        titlepattern = obj.titlepattern_urls.last()
+        return titlepattern.match_pattern_type if titlepattern else None
+
+    class Meta:
+        model = DeltaUrl
+        fields = (
+            "id",
+            "excluded",
+            "url",
+            "scraped_title",
+            "generated_title",
+            "generated_title_id",
+            "match_pattern_type",
+            "delta_urls_count",
+            "document_type",
+            "document_type_display",
+            "division",
+            "division_display",
+            "visited",
+            # "test_title",
+            # "production_title",
+            # "present_on_test",
+            # "present_on_prod",
         )
 
 
