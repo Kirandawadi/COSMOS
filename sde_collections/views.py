@@ -27,6 +27,7 @@ from .models.collection_choice_fields import (
     DocumentTypes,
     WorkflowStatusChoices,
 )
+from .models.delta_url import CuratedUrl
 from .models.pattern import (
     DivisionPattern,
     DocumentTypePattern,
@@ -34,7 +35,6 @@ from .models.pattern import (
     IncludePattern,
     TitlePattern,
 )
-from .models.delta_url import CuratedUrl
 from .serializers import (
     CandidateURLBulkCreateSerializer,
     CandidateURLSerializer,
