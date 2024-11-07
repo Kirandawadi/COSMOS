@@ -1,10 +1,9 @@
 import re
-from django.db import models
+
 from django.core.exceptions import ValidationError
-
-
 # models
 from django.db import models
+
 from .collection_choice_fields import Divisions, DocumentTypes
 
 
