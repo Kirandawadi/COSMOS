@@ -1,7 +1,3 @@
-import re
-
-from django.core.exceptions import ValidationError
-# models
 from django.db import models
 
 from .collection_choice_fields import Divisions, DocumentTypes
@@ -24,6 +20,10 @@ class BaseUrl(models.Model):
 
     def __str__(self):
         return self.url
+
+
+class DumpUrl(BaseUrl):
+    """Stores the raw dump from the server before deltas are calculated."""
 
 
 class DeltaUrl(BaseUrl):
