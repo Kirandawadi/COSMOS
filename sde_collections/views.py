@@ -34,7 +34,7 @@ from .models.pattern import (
     IncludePattern,
     TitlePattern,
 )
-from .models.url import CuratedUrl
+from .models.delta_url import CuratedUrl
 from .serializers import (
     CandidateURLBulkCreateSerializer,
     CandidateURLSerializer,
