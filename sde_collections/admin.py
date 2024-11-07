@@ -5,8 +5,8 @@ from django.http import HttpResponse
 
 from .models.candidate_url import CandidateURL, ResolvedTitle
 from .models.collection import Collection, WorkflowHistory
-from .models.pattern import DivisionPattern, IncludePattern, TitlePattern
 from .models.delta_url import CuratedUrl, DeltaUrl, DumpUrl
+from .models.pattern import DivisionPattern, IncludePattern, TitlePattern
 from .tasks import import_candidate_urls_from_api
 
 
