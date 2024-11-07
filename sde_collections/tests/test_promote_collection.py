@@ -1,5 +1,6 @@
 import pytest
-from sde_collections.models.delta_url import DeltaUrl, CuratedUrl
+
+from sde_collections.models.delta_url import CuratedUrl, DeltaUrl
 from sde_collections.tests.factories import CollectionFactory
 
 

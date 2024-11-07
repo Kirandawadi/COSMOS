@@ -8,7 +8,6 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from model_utils import FieldTracker
 from slugify import slugify
-from .delta_url import DeltaUrl, CuratedUrl
 
 from config_generation.db_to_xml import XmlEditor
 
@@ -27,6 +26,7 @@ from .collection_choice_fields import (
     UpdateFrequencies,
     WorkflowStatusChoices,
 )
+from .delta_url import CuratedUrl, DeltaUrl
 
 User = get_user_model()
 
