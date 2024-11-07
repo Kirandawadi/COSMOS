@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from .models.candidate_url import CandidateURL, ResolvedTitle
 from .models.collection import Collection, WorkflowHistory
 from .models.pattern import DivisionPattern, IncludePattern, TitlePattern
-from .models.url import CuratedUrl, DeltaUrl, DumpUrl, Url
+from .models.delta_url import CuratedUrl, DeltaUrl, DumpUrl
 from .tasks import import_candidate_urls_from_api
 
 
@@ -300,20 +300,6 @@ class DivisionPatternAdmin(admin.ModelAdmin):
     search_fields = ("match_pattern", "division")
 
 
-class CuratedUrlAdmin(admin.ModelAdmin):
-    """Admin View for CuratedUrl"""
-
-    list_display = ("url", "scraped_title", "collection")
-    list_filter = ("collection",)
-
-
-class DeltaUrlAdmin(admin.ModelAdmin):
-    """Admin View for DeltaUrl"""
-
-    list_display = ("url", "scraped_title", "collection")
-    list_filter = ("collection",)
-
-
 class DumpUrlAdmin(admin.ModelAdmin):
     """Admin View for DumpUrl"""
 
@@ -321,10 +307,17 @@ class DumpUrlAdmin(admin.ModelAdmin):
     list_filter = ("collection",)
 
 
-class UrlAdmin(admin.ModelAdmin):
-    """Admin View for Url"""
+class DeltaUrlAdmin(admin.ModelAdmin):
+    """Admin View for DeltaUrl"""
 
-    list_display = ("url", "scraped_title", "collection")
+    list_display = ("url", "scraped_title", "generated_title", "collection")
+    list_filter = ("collection",)
+
+
+class CuratedUrlAdmin(admin.ModelAdmin):
+    """Admin View for CuratedUrl"""
+
+    list_display = ("url", "scraped_title", "generated_title", "collection")
     list_filter = ("collection",)
 
 
@@ -334,7 +327,6 @@ admin.site.register(TitlePattern, TitlePatternAdmin)
 admin.site.register(IncludePattern)
 admin.site.register(ResolvedTitle, ResolvedTitleAdmin)
 admin.site.register(DivisionPattern, DivisionPatternAdmin)
+admin.site.register(DumpUrl, DumpUrlAdmin)
 admin.site.register(DeltaUrl, DeltaUrlAdmin)
 admin.site.register(CuratedUrl, CuratedUrlAdmin)
-admin.site.register(DumpUrl, DumpUrlAdmin)
-admin.site.register(Url, UrlAdmin)
