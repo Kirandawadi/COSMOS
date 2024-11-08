@@ -146,37 +146,24 @@ def resolve_title_pattern(title_pattern_id):
 
 
 @celery_app.task
-def fetch_and_update_full_text(collection_id, server_type):
-    try:
-        collection = Collection.objects.get(id=collection_id)
-    except Collection.DoesNotExist:
-        raise Exception(f"Collection with ID {collection_id} does not exist.")
+def fetch_and_update_full_text(collection_id, server_name):
+    """
+    Task to fetch and update full text and metadata for all URLs associated with a specified collection
+    from a given server.
 
-    server_config = get_server_config(server_type)
-    token = server_config["token"]
-    url = server_config["url"]
+    Args:
+        collection_id (int): The identifier for the collection in the database.
+        server_name (str): The name of the server.
 
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+    Returns:
+        str: A message indicating the result of the operation, including the number of URLs processed
+             or a message if no records were found.
+    """
+    collection = Collection.objects.get(id=collection_id)
+    api = Api(server_name)
+    full_texts = api.get_full_texts(collection.config_folder)
 
-    payload = json.dumps(
-        {
-            "method": "engine.sql",
-            "sql": f"SELECT url1, text, title FROM sde_index WHERE collection = '/SDE/{collection.config_folder}/'",
-            "pretty": True,
-            "log": False,
-            "output": "json",
-            "resolveIndexList": "false",
-            "engines": "default",
-        }
-    )
-
-    try:
-        response = requests.post(url, headers=headers, data=payload, timeout=10)
-        response.raise_for_status()  # Raise exception for HTTP errors
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"API request failed: {str(e)}")
-
-    records = response.json().get("Rows", [])
+    records = full_texts.get("Rows", [])
     if not records:
         return "No records found in the response."
 
@@ -188,14 +175,4 @@ def fetch_and_update_full_text(collection_id, server_type):
         CandidateURL.objects.update_or_create(
             url=url, collection=collection, defaults={"scraped_text": full_text, "scraped_title": title}
         )
-
     return f"Successfully processed {len(records)} records and updated the database."
-
-
-def get_server_config(server_type):
-    if server_type == "LRM_DEV":
-        return {"url": "https://sde-lrm.nasa-impact.net/api/v1/engine.sql", "token": os.getenv("LRMDEV_TOKEN")}
-    elif server_type == "LIS":
-        return {"url": "http://sde-xli.nasa-impact.net/api/v1/engine.sql", "token": os.getenv("LIS_TOKEN")}
-    else:
-        raise ValueError("Invalid server type.")

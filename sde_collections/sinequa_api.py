@@ -1,5 +1,5 @@
 from typing import Any
-
+import json
 import requests
 import urllib3
 from django.conf import settings
@@ -32,17 +32,17 @@ server_configs = {
         "query_name": "query-sde-primary",
         "base_url": "https://sciencediscoveryengine.nasa.gov",
     },
-    "lis_server": {
+    "xli": {
         "app_name": "nasa-sba-smd",
         "query_name": "query-smd-primary",
         "base_url": "http://sde-xli.nasa-impact.net",
     },
-    "lrm_dev_server": {
+    "lrm_dev": {
         "app_name": "sde-init-check",
         "query_name": "query-init-check",
         "base_url": "https://sde-lrm.nasa-impact.net",
     },
-    "lrm_qa_server": {
+    "lrm_qa": {
         "app_name": "sde-init-check",
         "query_name": "query-init-check",
         "base_url": "https://sde-qa.nasa-impact.net",
@@ -53,15 +53,13 @@ server_configs = {
 class Api:
     def __init__(self, server_name: str) -> None:
         self.server_name = server_name
-        self.app_name: str = server_configs[server_name]["app_name"]
-        self.query_name: str = server_configs[server_name]["query_name"]
-        self.base_url: str = server_configs[server_name]["base_url"]
-        self.xli_user = settings.XLI_USER
-        self.xli_password = settings.XLI_PASSWORD
-        self.lrm_user = settings.LRM_USER
-        self.lrm_password = settings.LRM_PASSWORD
-        self.lrm_qa_user = settings.LRM_QA_USER
-        self.lrm_qa_password = settings.LRM_QA_PASSWORD
+        config = server_configs[server_name]
+        self.app_name: str = config["app_name"]
+        self.query_name: str = config["query_name"]
+        self.base_url: str = config["base_url"]
+        self.user = getattr(settings, f"{server_name}_USER".upper(), None)
+        self.password = getattr(settings, f"{server_name}_PASSWORD".upper(), None)
+        self.token = getattr(settings, f"{server_name}_TOKEN".upper(), None)
 
     def process_response(self, url: str, payload: dict[str, Any]) -> Any:
         response = requests.post(url, headers={}, json=payload, verify=False)
@@ -74,14 +72,7 @@ class Api:
         return meaningful_response
 
     def query(self, page: int, collection_config_folder: str = "") -> Any:
-        if self.server_name == "lis_server":
-            url = f"{self.base_url}/api/v1/search.query?Password={self.xli_password}&User={self.xli_user}"
-        elif self.server_name == "lrm_dev_server":
-            url = f"{self.base_url}/api/v1/search.query?Password={self.lrm_password}&User={self.lrm_user}"
-        elif self.server_name == "lrm_qa_server":
-            url = f"{self.base_url}/api/v1/search.query?Password={self.lrm_qa_password}&User={self.lrm_qa_user}"
-        else:
-            url = f"{self.base_url}/api/v1/search.query"
+        url = f"{self.base_url}/api/v1/search.query?Password={self.password}&User={self.user}"
         payload = {
             "app": self.app_name,
             "query": {
@@ -94,7 +85,7 @@ class Api:
         }
 
         if collection_config_folder:
-            if self.server_name in ["lis_server", "lrm_dev_server", "lrm_qa_server"]:
+            if self.server_name in ["xli", "lrm_dev", "lrm_qa"]:
                 payload["query"]["advanced"]["collection"] = f"/scrapers/{collection_config_folder}/"
             else:
                 payload["query"]["advanced"]["collection"] = f"/SDE/{collection_config_folder}/"
@@ -102,3 +93,33 @@ class Api:
         response = self.process_response(url, payload)
 
         return response
+
+    def sql_query(self, sql: str) -> Any:
+        """Executes an SQL query on the configured server using token-based authentication."""
+        if not self.token:
+            raise ValueError("You must have a token to use the SQL endpoint")
+
+        url = f"{self.base_url}/api/v1/engine.sql"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.token}"
+        }
+        payload = json.dumps({
+            "method": "engine.sql",
+            "sql": sql,
+            "pretty": True,
+            "log": False,
+            "output": "json",
+            "resolveIndexList": "false",
+            "engines": "default",
+        })
+        try:
+            response = requests.post(url, headers=headers, data=payload, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"API request failed: {str(e)}")
+        
+    def get_full_texts(self, collection_config_folder: str) -> Any:
+        sql = f"SELECT url1, text, title FROM sde_index WHERE collection = '/SDE/{collection_config_folder}/'"
+        return self.sql_query(sql)
