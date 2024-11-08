@@ -3,7 +3,6 @@ import os
 import shutil
 
 import boto3
-import requests
 from django.apps import apps
 from django.conf import settings
 from django.core import management

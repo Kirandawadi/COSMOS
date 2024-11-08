@@ -121,7 +121,6 @@ def import_candidate_urls_from_api_caller(modeladmin, request, queryset, server_
         collection_ids=list(queryset.values_list("id", flat=True)),
         server_name=server_name,
     )
-    collection_names = ", ".join(queryset.values_list("name", flat=True))
     messages.add_message(
         request,
         messages.INFO,
