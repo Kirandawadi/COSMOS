@@ -1,5 +1,6 @@
-from typing import Any
 import json
+from typing import Any
+
 import requests
 import urllib3
 from django.conf import settings
@@ -100,26 +101,25 @@ class Api:
             raise ValueError("You must have a token to use the SQL endpoint")
 
         url = f"{self.base_url}/api/v1/engine.sql"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}"
-        }
-        payload = json.dumps({
-            "method": "engine.sql",
-            "sql": sql,
-            "pretty": True,
-            "log": False,
-            "output": "json",
-            "resolveIndexList": "false",
-            "engines": "default",
-        })
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"}
+        payload = json.dumps(
+            {
+                "method": "engine.sql",
+                "sql": sql,
+                "pretty": True,
+                "log": False,
+                "output": "json",
+                "resolveIndexList": "false",
+                "engines": "default",
+            }
+        )
         try:
             response = requests.post(url, headers=headers, data=payload, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             raise Exception(f"API request failed: {str(e)}")
-        
+
     def get_full_texts(self, collection_config_folder: str) -> Any:
         sql = f"SELECT url1, text, title FROM sde_index WHERE collection = '/SDE/{collection_config_folder}/'"
         return self.sql_query(sql)

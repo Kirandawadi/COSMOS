@@ -14,13 +14,16 @@ def fetch_and_update_text_for_server(modeladmin, request, queryset, server_name)
         fetch_and_update_full_text.delay(collection.id, server_name)
     modeladmin.message_user(request, f"Started importing URLs from {server_name.upper()} Server")
 
+
 @admin.action(description="Import candidate URLs from LRM Dev Server with Full Text")
 def fetch_full_text_lrm_dev_action(modeladmin, request, queryset):
     fetch_and_update_text_for_server(modeladmin, request, queryset, "lrm_dev")
 
+
 @admin.action(description="Import candidate URLs from XLI Server with Full Text")
 def fetch_full_text_lis_action(modeladmin, request, queryset):
     fetch_and_update_text_for_server(modeladmin, request, queryset, "xli")
+
 
 @admin.action(description="Generate deployment message")
 def generate_deployment_message(modeladmin, request, queryset):
