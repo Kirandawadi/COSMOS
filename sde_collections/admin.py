@@ -124,7 +124,7 @@ def import_candidate_urls_from_api_caller(modeladmin, request, queryset, server_
     messages.add_message(
         request,
         messages.INFO,
-        f"Started importing URLs from {server_name.upper()} Server",
+        f"Started importing URLs from the API for: {collection_names} from {server_name.upper()} Server",
     )
 
 
