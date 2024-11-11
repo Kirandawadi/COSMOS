@@ -26,6 +26,7 @@ from .collection_choice_fields import (
     UpdateFrequencies,
     WorkflowStatusChoices,
 )
+from .delta_url import CuratedUrl, DeltaUrl
 
 User = get_user_model()
 
@@ -82,6 +83,51 @@ class Collection(models.Model):
 
         verbose_name = "Collection"
         verbose_name_plural = "Collections"
+
+    def promote_to_curated(self):
+        """
+        Promotes all DeltaUrls in this collection to CuratedUrls.
+        Updates, adds, or removes CuratedUrls as necessary to match the latest DeltaUrls.
+        """
+        # Step 1: Fetch all current DeltaUrls and CuratedUrls for this collection
+        delta_urls = {url.url: url for url in DeltaUrl.objects.filter(collection=self)}
+        curated_urls = {url.url: url for url in CuratedUrl.objects.filter(collection=self)}
+
+        # Step 2: Process each DeltaUrl to update or create the corresponding CuratedUrl
+        for url, delta in delta_urls.items():
+            curated = curated_urls.get(url)
+
+            # Delete the CuratedUrl if the DeltaUrl is marked for deletion
+            if delta.delete:
+                if curated:
+                    curated.delete()
+                continue
+
+            if curated:
+                updated_fields = {}
+                for field in delta._meta.fields:
+                    field_name = field.name
+                    if field_name == "delete":
+                        continue
+
+                    delta_value = getattr(delta, field_name)
+                    if delta_value not in [None, ""] and getattr(curated, field_name) != delta_value:
+                        updated_fields[field_name] = delta_value
+
+                if updated_fields:
+                    # Use update to modify fields directly in the database
+                    CuratedUrl.objects.filter(pk=curated.pk).update(**updated_fields)
+            else:
+                # If no matching CuratedUrl, create a new one using all non-null and non-empty fields
+                new_data = {
+                    field.name: getattr(delta, field.name)
+                    for field in delta._meta.fields
+                    if field.name not in ["delete", "collection"] and getattr(delta, field.name) not in [None, ""]
+                }
+                CuratedUrl.objects.create(collection=self, **new_data)
+
+        # Step 3: Clear all DeltaUrls for this collection since they've been promoted
+        DeltaUrl.objects.filter(collection=self).delete()
 
     def add_to_public_query(self):
         """Add the collection to the public query."""

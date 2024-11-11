@@ -3,10 +3,15 @@ import csv
 from django.contrib import admin, messages
 from django.http import HttpResponse
 
+from sde_collections.models.delta_patterns import (
+    DeltaDivisionPattern,
+    DeltaTitlePattern,
+)
+
 from .models.candidate_url import CandidateURL, ResolvedTitle
 from .models.collection import Collection, WorkflowHistory
+from .models.delta_url import CuratedUrl, DeltaResolvedTitle, DeltaUrl, DumpUrl
 from .models.pattern import DivisionPattern, IncludePattern, TitlePattern
-from .models.url import CuratedUrl, DeltaUrl, DumpUrl, Url
 from .tasks import import_candidate_urls_from_api
 
 
@@ -300,8 +305,33 @@ class DivisionPatternAdmin(admin.ModelAdmin):
     search_fields = ("match_pattern", "division")
 
 
-class CuratedUrlAdmin(admin.ModelAdmin):
-    """Admin View for CuratedUrl"""
+# deltas below
+class DeltaTitlePatternAdmin(admin.ModelAdmin):
+    """Admin View for DeltaTitlePattern"""
+
+    list_display = (
+        "match_pattern",
+        "title_pattern",
+        "collection",
+        "match_pattern_type",
+    )
+    list_filter = (
+        "match_pattern_type",
+        "collection",
+    )
+
+
+class DeltaResolvedTitleAdmin(admin.ModelAdmin):
+    list_display = ["title_pattern", "delta_url", "resolved_title", "created_at"]
+
+
+class DeltaDivisionPatternAdmin(admin.ModelAdmin):
+    list_display = ("collection", "match_pattern", "division")
+    search_fields = ("match_pattern", "division")
+
+
+class DumpUrlAdmin(admin.ModelAdmin):
+    """Admin View for DumpUrl"""
 
     list_display = ("url", "scraped_title", "collection")
     list_filter = ("collection",)
@@ -310,21 +340,14 @@ class CuratedUrlAdmin(admin.ModelAdmin):
 class DeltaUrlAdmin(admin.ModelAdmin):
     """Admin View for DeltaUrl"""
 
-    list_display = ("url", "scraped_title", "collection")
-    list_filter = ("collection",)
-
-
-class DumpUrlAdmin(admin.ModelAdmin):
-    """Admin View for DumpUrl"""
-
     list_display = ("url", "scraped_title", "generated_title", "collection")
     list_filter = ("collection",)
 
 
-class UrlAdmin(admin.ModelAdmin):
-    """Admin View for Url"""
+class CuratedUrlAdmin(admin.ModelAdmin):
+    """Admin View for CuratedUrl"""
 
-    list_display = ("url", "scraped_title", "collection")
+    list_display = ("url", "scraped_title", "generated_title", "collection")
     list_filter = ("collection",)
 
 
@@ -334,7 +357,11 @@ admin.site.register(TitlePattern, TitlePatternAdmin)
 admin.site.register(IncludePattern)
 admin.site.register(ResolvedTitle, ResolvedTitleAdmin)
 admin.site.register(DivisionPattern, DivisionPatternAdmin)
+
+
+admin.site.register(DeltaTitlePattern, DeltaTitlePatternAdmin)
+admin.site.register(DeltaResolvedTitle, DeltaResolvedTitleAdmin)
+admin.site.register(DeltaDivisionPattern, DeltaDivisionPatternAdmin)
+admin.site.register(DumpUrl, DumpUrlAdmin)
 admin.site.register(DeltaUrl, DeltaUrlAdmin)
 admin.site.register(CuratedUrl, CuratedUrlAdmin)
-admin.site.register(DumpUrl, DumpUrlAdmin)
-admin.site.register(Url, UrlAdmin)
