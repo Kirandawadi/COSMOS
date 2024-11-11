@@ -52,7 +52,7 @@ server_configs = {
 
 
 class Api:
-    def __init__(self, server_name: str=None) -> None:
+    def __init__(self, server_name: str = None) -> None:
         self.server_name = server_name
         config = server_configs[server_name]
         self.app_name: str = config["app_name"]
