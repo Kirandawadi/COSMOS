@@ -303,7 +303,7 @@ class DivisionPatternAdmin(admin.ModelAdmin):
 class DumpUrlAdmin(admin.ModelAdmin):
     """Admin View for DumpUrl"""
 
-    list_display = ("url", "scraped_title", "generated_title", "collection")
+    list_display = ("url", "scraped_title", "collection")
     list_filter = ("collection",)
 
 
