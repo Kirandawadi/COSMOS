@@ -3,6 +3,13 @@ from rest_framework import serializers
 from .models.candidate_url import CandidateURL
 from .models.collection import Collection, WorkflowHistory
 from .models.collection_choice_fields import Divisions, DocumentTypes
+from .models.delta_patterns import (
+    DeltaDivisionPattern,
+    DeltaDocumentTypePattern,
+    DeltaExcludePattern,
+    DeltaIncludePattern,
+    DeltaTitlePattern,
+)
 from .models.delta_url import CuratedUrl, DeltaUrl
 from .models.pattern import (
     DivisionPattern,
@@ -109,16 +116,16 @@ class CuratedURLSerializer(serializers.ModelSerializer):
     curated_urls_count = serializers.SerializerMethodField(read_only=True)
 
     def get_curated_urls_count(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
-        return titlepattern.curated_urls.count() if titlepattern else 0
+        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        return deltatitlepattern.curated_urls.count() if deltatitlepattern else 0
 
     def get_generated_title_id(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
-        return titlepattern.id if titlepattern else None
+        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        return deltatitlepattern.id if deltatitlepattern else None
 
     def get_match_pattern_type(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
-        return titlepattern.match_pattern_type if titlepattern else None
+        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        return deltatitlepattern.match_pattern_type if deltatitlepattern else None
 
     class Meta:
         model = CuratedUrl
@@ -153,16 +160,16 @@ class DeltaURLSerializer(serializers.ModelSerializer):
     delta_urls_count = serializers.SerializerMethodField(read_only=True)
 
     def get_delta_urls_count(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
-        return titlepattern.delta_urls.count() if titlepattern else 0
+        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        return deltatitlepattern.delta_urls.count() if deltatitlepattern else 0
 
     def get_generated_title_id(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
-        return titlepattern.id if titlepattern else None
+        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        return deltatitlepattern.id if deltatitlepattern else None
 
     def get_match_pattern_type(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
-        return titlepattern.match_pattern_type if titlepattern else None
+        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        return deltatitlepattern.match_pattern_type if deltatitlepattern else None
 
     class Meta:
         model = DeltaUrl
@@ -261,9 +268,21 @@ class ExcludePatternSerializer(BasePatternSerializer, serializers.ModelSerialize
         fields = BasePatternSerializer.Meta.fields + ("reason",)
 
 
+class DeltaExcludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+    class Meta:
+        model = DeltaExcludePattern
+        fields = BasePatternSerializer.Meta.fields + ("reason",)
+
+
 class IncludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
     class Meta:
         model = IncludePattern
+        fields = BasePatternSerializer.Meta.fields
+
+
+class DeltaIncludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+    class Meta:
+        model = DeltaIncludePattern
         fields = BasePatternSerializer.Meta.fields
 
 
@@ -280,6 +299,23 @@ class TitlePatternSerializer(BasePatternSerializer, serializers.ModelSerializer)
             )
             title_pattern.delete()
         except TitlePattern.DoesNotExist:
+            pass
+        return value
+
+
+class DeltaTitlePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+    class Meta:
+        model = DeltaTitlePattern
+        fields = BasePatternSerializer.Meta.fields + ("delta_title_pattern",)
+
+    def validate_match_pattern(self, value):
+        try:
+            delta_title_pattern = DeltaTitlePattern.objects.get(
+                match_pattern=value,
+                match_pattern_type=DeltaTitlePattern.MatchPatternTypeChoices.INDIVIDUAL_URL,
+            )
+            delta_title_pattern.delete()
+        except DeltaTitlePattern.DoesNotExist:
             pass
         return value
 
@@ -312,6 +348,34 @@ class DocumentTypePatternSerializer(BasePatternSerializer, serializers.ModelSeri
         return value
 
 
+class DeltaDocumentTypePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
+    document_type = serializers.ChoiceField(
+        choices=DocumentTypes.choices
+        + [
+            (0, "None"),
+        ]
+    )
+
+    class Meta:
+        model = DeltaDocumentTypePattern
+        fields = BasePatternSerializer.Meta.fields + (
+            "document_type",
+            "document_type_display",
+        )
+
+    def validate_match_pattern(self, value):
+        try:
+            title_pattern = DeltaDocumentTypePattern.objects.get(
+                match_pattern=value,
+                match_pattern_type=DeltaDocumentTypePattern.MatchPatternTypeChoices.INDIVIDUAL_URL,
+            )
+            title_pattern.delete()
+        except DeltaDocumentTypePattern.DoesNotExist:
+            pass
+        return value
+
+
 class DivisionPatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
     division_display = serializers.CharField(source="get_division_display", read_only=True)
     division = serializers.ChoiceField(choices=Divisions.choices)
@@ -331,5 +395,28 @@ class DivisionPatternSerializer(BasePatternSerializer, serializers.ModelSerializ
             )
             division_pattern.delete()
         except DivisionPattern.DoesNotExist:
+            pass
+        return value
+
+
+class DeltaDivisionPatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+    division_display = serializers.CharField(source="get_division_display", read_only=True)
+    division = serializers.ChoiceField(choices=Divisions.choices)
+
+    class Meta:
+        model = DeltaDivisionPattern
+        fields = BasePatternSerializer.Meta.fields + (
+            "division",
+            "division_display",
+        )
+
+    def validate_match_pattern(self, value):
+        try:
+            division_pattern = DeltaDivisionPattern.objects.get(
+                match_pattern=value,
+                match_pattern_type=DeltaDivisionPattern.MatchPatternTypeChoices.INDIVIDUAL_URL,
+            )
+            division_pattern.delete()
+        except DeltaDivisionPattern.DoesNotExist:
             pass
         return value

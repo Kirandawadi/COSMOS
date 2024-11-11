@@ -27,6 +27,13 @@ from .models.collection_choice_fields import (
     DocumentTypes,
     WorkflowStatusChoices,
 )
+from .models.delta_patterns import (
+    DeltaDivisionPattern,
+    DeltaDocumentTypePattern,
+    DeltaExcludePattern,
+    DeltaIncludePattern,
+    DeltaTitlePattern,
+)
 from .models.delta_url import CuratedUrl, DeltaUrl
 from .models.pattern import (
     DivisionPattern,
@@ -42,6 +49,11 @@ from .serializers import (
     CollectionSerializer,
     CuratedUrlAPISerializer,
     CuratedURLSerializer,
+    DeltaDivisionPatternSerializer,
+    DeltaDocumentTypePatternSerializer,
+    DeltaExcludePatternSerializer,
+    DeltaIncludePatternSerializer,
+    DeltaTitlePatternSerializer,
     DeltaURLSerializer,
     DivisionPatternSerializer,
     DocumentTypePatternSerializer,
@@ -407,6 +419,26 @@ class ExcludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
             return super().create(request, *args, **kwargs)
 
 
+class DeltaExcludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = DeltaExcludePattern.objects.all()
+    serializer_class = DeltaExcludePatternSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("match_pattern")
+
+    def create(self, request, *args, **kwargs):
+        match_pattern = request.POST.get("match_pattern")
+        collection_id = request.POST.get("collection")
+        try:
+            DeltaExcludePattern.objects.get(
+                collection_id=Collection.objects.get(id=collection_id),
+                match_pattern=match_pattern,
+            ).delete()
+            return Response(status=status.HTTP_200_OK)
+        except DeltaExcludePattern.DoesNotExist:
+            return super().create(request, *args, **kwargs)
+
+
 class IncludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
     queryset = IncludePattern.objects.all()
     serializer_class = IncludePatternSerializer
@@ -427,9 +459,37 @@ class IncludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
             return super().create(request, *args, **kwargs)
 
 
+class DeltaIncludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = DeltaIncludePattern.objects.all()
+    serializer_class = DeltaIncludePatternSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("match_pattern")
+
+    def create(self, request, *args, **kwargs):
+        match_pattern = request.POST.get("match_pattern")
+        collection_id = request.POST.get("collection")
+        try:
+            DeltaIncludePattern.objects.get(
+                collection_id=Collection.objects.get(id=collection_id),
+                match_pattern=match_pattern,
+            ).delete()
+            return Response(status=status.HTTP_200_OK)
+        except DeltaIncludePattern.DoesNotExist:
+            return super().create(request, *args, **kwargs)
+
+
 class TitlePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
     queryset = TitlePattern.objects.all()
     serializer_class = TitlePatternSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("match_pattern")
+
+
+class DeltaTitlePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = DeltaTitlePattern.objects.all()
+    serializer_class = DeltaTitlePatternSerializer
 
     def get_queryset(self):
         return super().get_queryset().order_by("match_pattern")
@@ -460,9 +520,49 @@ class DocumentTypePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
                 return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class DeltaDocumentTypePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = DeltaDocumentTypePattern.objects.all()
+    serializer_class = DeltaDocumentTypePatternSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("match_pattern")
+
+    def create(self, request, *args, **kwargs):
+        document_type = request.POST.get("document_type")
+        if not int(document_type) == 0:  # 0=none
+            return super().create(request, *args, **kwargs)
+        else:
+            collection_id = request.POST.get("collection")
+            match_pattern = request.POST.get("match_pattern")
+            try:
+                DeltaDocumentTypePattern.objects.get(
+                    collection_id=Collection.objects.get(id=collection_id),
+                    match_pattern=match_pattern,
+                    match_pattern_type=DeltaDocumentTypePattern.MatchPatternTypeChoices.INDIVIDUAL_URL,
+                ).delete()
+                return Response(status=status.HTTP_200_OK)
+            except DeltaDocumentTypePattern.DoesNotExist:
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class DivisionPatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
     queryset = DivisionPattern.objects.all()
     serializer_class = DivisionPatternSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().order_by("match_pattern")
+
+    def create(self, request, *args, **kwargs):
+        division = request.POST.get("division")
+        if division:
+            return super().create(request, *args, **kwargs)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
+
+
+class DeltaDivisionPatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
+    queryset = DeltaDivisionPattern.objects.all()
+    serializer_class = DeltaDivisionPatternSerializer
 
     def get_queryset(self):
         return super().get_queryset().order_by("match_pattern")
