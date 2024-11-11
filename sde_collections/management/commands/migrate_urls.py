@@ -3,8 +3,7 @@ from django.core.management.base import BaseCommand
 from sde_collections.models.candidate_url import CandidateURL
 from sde_collections.models.collection import Collection
 from sde_collections.models.collection_choice_fields import WorkflowStatusChoices
-from sde_collections.models.curated_url import CuratedUrl
-from sde_collections.models.delta_url import DeltaUrl
+from sde_collections.models.delta_url import CuratedUrl, DeltaUrl
 
 
 class Command(BaseCommand):
