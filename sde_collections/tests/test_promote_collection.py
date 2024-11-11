@@ -1,3 +1,5 @@
+# docker-compose -f local.yml run --rm django pytest sde_collections/tests/test_promote_collection.py
+
 import pytest
 
 from sde_collections.models.delta_url import CuratedUrl, DeltaUrl
