@@ -73,7 +73,10 @@ class Api:
         return meaningful_response
 
     def query(self, page: int, collection_config_folder: str = "") -> Any:
-        url = f"{self.base_url}/api/v1/search.query?Password={self.password}&User={self.user}"
+        if self.server_name:
+            url = f"{self.base_url}/api/v1/search.query?Password={self.password}&User={self.user}"
+        else:
+            url = f"{self.base_url}/api/v1/search.query"
         payload = {
             "app": self.app_name,
             "query": {
