@@ -4,6 +4,35 @@ from urllib.parse import urlparse
 from django.db import models
 
 from .collection_choice_fields import Divisions, DocumentTypes
+from .delta_patterns import DeltaExcludePattern
+
+
+class DeltaUrlQuerySet(models.QuerySet):
+    def with_exclusion_status(self):
+        return self.annotate(
+            excluded=models.Exists(
+                DeltaExcludePattern.delta_urls.through.objects.filter(deltaurl=models.OuterRef("pk"))
+            )
+        )
+
+
+class CuratedUrlQuerySet(models.QuerySet):
+    def with_exclusion_status(self):
+        return self.annotate(
+            excluded=models.Exists(
+                DeltaExcludePattern.curated_urls.through.objects.filter(curatedurl=models.OuterRef("pk"))
+            )
+        )
+
+
+class DeltaUrlManager(models.Manager):
+    def get_queryset(self):
+        return DeltaUrlQuerySet(self.model, using=self._db).with_exclusion_status()
+
+
+class CuratedUrlManager(models.Manager):
+    def get_queryset(self):
+        return CuratedUrlQuerySet(self.model, using=self._db).with_exclusion_status()
 
 
 class BaseUrl(models.Model):
@@ -71,10 +100,11 @@ class DumpUrl(BaseUrl):
 class DeltaUrl(BaseUrl):
     """Urls that are being curated. Only deltas are stored in this model."""
 
+    objects = DeltaUrlManager()
     delete = models.BooleanField(default=False)
 
 
 class CuratedUrl(BaseUrl):
     """Urls that are curated and ready for production"""
 
-    pass
+    objects = CuratedUrlManager()
