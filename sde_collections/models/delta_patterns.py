@@ -4,8 +4,6 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from sde_collections.models.delta_url import DeltaUrl
-
 from ..utils.title_resolver import (
     is_valid_fstring,
     is_valid_xpath,
@@ -59,6 +57,9 @@ class BaseMatchPattern(models.Model):
         Generates or updates a DeltaUrl based on a CuratedUrl.
         Only specified fields are copied if fields_to_copy is provided.
         """
+        # Import DeltaUrl dynamically to avoid circular import issues
+        DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
+
         delta_url, created = DeltaUrl.objects.get_or_create(
             collection=self.collection,
             url=curated_url.url,
@@ -66,8 +67,6 @@ class BaseMatchPattern(models.Model):
         )
         if not created and fields_to_copy:
             # Update only if certain fields are missing in DeltaUrl
-            # in the current codebase, this is only executed for scraped_title, but this
-            # can be extended to other fields as well, if we add a pattern that requires it
             for field in fields_to_copy:
                 if getattr(delta_url, field, None) in [None, ""]:
                     setattr(delta_url, field, getattr(curated_url, field))
