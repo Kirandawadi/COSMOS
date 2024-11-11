@@ -3,9 +3,14 @@ import csv
 from django.contrib import admin, messages
 from django.http import HttpResponse
 
+from sde_collections.models.delta_patterns import (
+    DeltaDivisionPattern,
+    DeltaTitlePattern,
+)
+
 from .models.candidate_url import CandidateURL, ResolvedTitle
 from .models.collection import Collection, WorkflowHistory
-from .models.delta_url import CuratedUrl, DeltaUrl, DumpUrl
+from .models.delta_url import CuratedUrl, DeltaResolvedTitle, DeltaUrl, DumpUrl
 from .models.pattern import DivisionPattern, IncludePattern, TitlePattern
 from .tasks import import_candidate_urls_from_api
 
@@ -300,6 +305,31 @@ class DivisionPatternAdmin(admin.ModelAdmin):
     search_fields = ("match_pattern", "division")
 
 
+# deltas below
+class DeltaTitlePatternAdmin(admin.ModelAdmin):
+    """Admin View for DeltaTitlePattern"""
+
+    list_display = (
+        "match_pattern",
+        "title_pattern",
+        "collection",
+        "match_pattern_type",
+    )
+    list_filter = (
+        "match_pattern_type",
+        "collection",
+    )
+
+
+class DeltaResolvedTitleAdmin(admin.ModelAdmin):
+    list_display = ["title_pattern", "delta_url", "resolved_title", "created_at"]
+
+
+class DeltaDivisionPatternAdmin(admin.ModelAdmin):
+    list_display = ("collection", "match_pattern", "division")
+    search_fields = ("match_pattern", "division")
+
+
 class DumpUrlAdmin(admin.ModelAdmin):
     """Admin View for DumpUrl"""
 
@@ -327,6 +357,11 @@ admin.site.register(TitlePattern, TitlePatternAdmin)
 admin.site.register(IncludePattern)
 admin.site.register(ResolvedTitle, ResolvedTitleAdmin)
 admin.site.register(DivisionPattern, DivisionPatternAdmin)
+
+
+admin.site.register(DeltaTitlePattern, DeltaTitlePatternAdmin)
+admin.site.register(DeltaResolvedTitle, DeltaResolvedTitleAdmin)
+admin.site.register(DeltaDivisionPattern, DeltaDivisionPatternAdmin)
 admin.site.register(DumpUrl, DumpUrlAdmin)
 admin.site.register(DeltaUrl, DeltaUrlAdmin)
 admin.site.register(CuratedUrl, CuratedUrlAdmin)

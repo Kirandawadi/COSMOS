@@ -96,6 +96,11 @@ class BaseUrl(models.Model):
 class DumpUrl(BaseUrl):
     """Stores the raw dump from the server before deltas are calculated."""
 
+    class Meta:
+        verbose_name = "Dump Urls"
+        verbose_name_plural = "Dump Urls"
+        ordering = ["url"]
+
 
 class DeltaUrl(BaseUrl):
     """Urls that are being curated. Only deltas are stored in this model."""
@@ -103,11 +108,21 @@ class DeltaUrl(BaseUrl):
     objects = DeltaUrlManager()
     delete = models.BooleanField(default=False)
 
+    class Meta:
+        verbose_name = "Delta Urls"
+        verbose_name_plural = "Delta Urls"
+        ordering = ["url"]
+
 
 class CuratedUrl(BaseUrl):
     """Urls that are curated and ready for production"""
 
     objects = CuratedUrlManager()
+
+    class Meta:
+        verbose_name = "Curated Urls"
+        verbose_name_plural = "Curated Urls"
+        ordering = ["url"]
 
 
 class DeltaResolvedTitleBase(models.Model):

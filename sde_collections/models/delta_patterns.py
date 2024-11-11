@@ -127,8 +127,8 @@ class DeltaExcludePattern(BaseMatchPattern):
     # This pattern's functionality is handled by the `excluded` annotation in the manager.
 
     class Meta:
-        verbose_name = "Exclude Pattern"
-        verbose_name_plural = "Exclude Patterns"
+        verbose_name = "Delta Exclude Pattern"
+        verbose_name_plural = "Delta Exclude Patterns"
         unique_together = ("collection", "match_pattern")
 
 
@@ -136,8 +136,8 @@ class DeltaIncludePattern(BaseMatchPattern):
     # No additional logic needed for `apply`—using base class functionality.
 
     class Meta:
-        verbose_name = "Include Pattern"
-        verbose_name_plural = "Include Patterns"
+        verbose_name = "Delta Include Pattern"
+        verbose_name_plural = "Delta Include Patterns"
         unique_together = ("collection", "match_pattern")
 
 
@@ -214,8 +214,8 @@ class DeltaTitlePattern(BaseMatchPattern):
         self.curated_urls.clear()
 
     class Meta:
-        verbose_name = "Title Pattern"
-        verbose_name_plural = "Title Patterns"
+        verbose_name = "Delta Title Pattern"
+        verbose_name_plural = "Delta Title Patterns"
         unique_together = ("collection", "match_pattern")
 
 
@@ -233,8 +233,8 @@ class DeltaDocumentTypePattern(BaseMatchPattern):
         self.curated_urls.clear()
 
     class Meta:
-        verbose_name = "Document Type Pattern"
-        verbose_name_plural = "Document Type Patterns"
+        verbose_name = "Delta Document Type Pattern"
+        verbose_name_plural = "Delta Document Type Patterns"
         unique_together = ("collection", "match_pattern")
 
 
@@ -251,8 +251,8 @@ class DeltaDivisionPattern(BaseMatchPattern):
         self.delta_urls.update(division=None)
 
     class Meta:
-        verbose_name = "Division Pattern"
-        verbose_name_plural = "Division Patterns"
+        verbose_name = "Delta Division Pattern"
+        verbose_name_plural = "Delta Division Patterns"
         unique_together = ("collection", "match_pattern")
 
 
