@@ -34,24 +34,31 @@ class BaseMatchPattern(models.Model):
     match_pattern_type = models.IntegerField(choices=MatchPatternTypeChoices.choices, default=1)
     delta_urls = models.ManyToManyField(
         "DeltaUrl",
-        related_name="%(class)s_urls",
+        related_name="%(class)s_delta_urls",
     )
     curated_urls = models.ManyToManyField(
         "CuratedUrl",
-        related_name="%(class)s_urls",
+        related_name="%(class)s_curated_urls",
     )
 
     def matched_urls(self):
         """Find all the urls matching the pattern."""
         escaped_match_pattern = re.escape(self.match_pattern)
         if self.match_pattern_type == self.MatchPatternTypeChoices.INDIVIDUAL_URL:
-            return self.collection.candidate_urls.filter(url__regex=f"{escaped_match_pattern}$")
+            regex_pattern = f"{escaped_match_pattern}$"
         elif self.match_pattern_type == self.MatchPatternTypeChoices.MULTI_URL_PATTERN:
-            return self.collection.candidate_urls.filter(
-                url__regex=escaped_match_pattern.replace(r"\*", ".*")  # allow * wildcards
-            )
+            regex_pattern = escaped_match_pattern.replace(r"\*", ".*")  # allow * wildcards
         else:
             raise NotImplementedError
+
+        # Filter both DeltaUrls and CuratedUrls
+        matching_delta_urls = self.delta_urls.filter(url__regex=regex_pattern)
+        matching_curated_urls = self.curated_urls.filter(url__regex=regex_pattern)
+
+        return {
+            "matching_delta_urls": matching_delta_urls,
+            "matching_curated_urls": matching_curated_urls,
+        }
 
     def _process_match_pattern(self) -> str:
         """
@@ -98,21 +105,31 @@ class DeltaExcludePattern(BaseMatchPattern):
 
     def apply(self) -> None:
         matched_urls = self.matched_urls()
-        candidate_url_ids = list(matched_urls.values_list("id", flat=True))
-        self.candidate_urls.through.objects.bulk_create(
-            objs=[
-                DeltaExcludePattern.candidate_urls.through(candidateurl_id=candidate_url_id, excludepattern_id=self.id)
-                for candidate_url_id in candidate_url_ids
+
+        # Define a mapping of model attributes to their related URL fields
+        url_mappings = {
+            "delta_urls": matched_urls["matching_delta_urls"].values_list("id", flat=True),
+            "curated_urls": matched_urls["matching_curated_urls"].values_list("id", flat=True),
+        }
+
+        for field_name, url_ids in url_mappings.items():
+            through_model = getattr(self, field_name).through  # Access the through model dynamically
+            bulk_data = [
+                through_model(**{f"{field_name[:-1]}_id": url_id, "deltaexcludepattern_id": self.id})
+                for url_id in url_ids
             ]
-        )
+            through_model.objects.bulk_create(bulk_data)
 
     def unapply(self) -> None:
+        # this is the new, suggested code
+        # self.delta_urls.clear()
+        # self.curated_urls.clear()
+        # this is the old code
+        # need to study later and decide which is better
         "Unapplies automatically by deleting include pattern through objects in a cascade"
         return
 
     class Meta:
-        """Meta definition for DeltaExcludePattern."""
-
         verbose_name = "Exclude Pattern"
         verbose_name_plural = "Exclude Patterns"
         unique_together = ("collection", "match_pattern")
