@@ -269,7 +269,8 @@ class DeltaDocumentTypePattern(BaseMatchPattern):
             # Bulk create associations in the through table
             through_model = getattr(self, field_name).through
             pattern_url_associations = [
-                through_model(**{f"{field_name[:-1]}_id": url.id, "documenttypepattern_id": self.id}) for url in urls
+                through_model(**{f"{field_name[:-1]}_id": url.id, "deltadocumenttypepattern_id": self.id})
+                for url in urls
             ]
             through_model.objects.bulk_create(pattern_url_associations, ignore_conflicts=True)
 
@@ -301,7 +302,7 @@ class DeltaDivisionPattern(BaseMatchPattern):
             # Bulk create associations in the through table
             through_model = getattr(self, field_name).through
             pattern_url_associations = [
-                through_model(**{f"{field_name[:-1]}_id": url.id, "divisionpattern_id": self.id}) for url in urls
+                through_model(**{f"{field_name[:-1]}_id": url.id, "deltadivisionpattern_id": self.id}) for url in urls
             ]
             through_model.objects.bulk_create(pattern_url_associations, ignore_conflicts=True)
 
