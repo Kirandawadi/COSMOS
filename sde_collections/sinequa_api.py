@@ -124,9 +124,9 @@ class Api:
             raise Exception(f"API request failed: {str(e)}")
 
     def get_full_texts(self, collection_config_folder: str) -> Any:
-        '''
+        """
         Retrieves the full texts, URLs, and titles for a specified collection.
-        
+
         Returns:
             dict: A JSON response containing the results of the SQL query in an expected format under the 'Rows' key,
                 where each item has 'url1', 'text', and 'title' .
@@ -147,8 +147,7 @@ class Api:
                     }
                 ]
             }
-        
-        '''
+
+        """
         sql = f"SELECT url1, text, title FROM sde_index WHERE collection = '/SDE/{collection_config_folder}/'"
         return self.sql_query(sql)
-    
