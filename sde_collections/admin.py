@@ -77,6 +77,7 @@ def import_sinequa_metadata(modeladmin, request, queryset):
     for collection in queryset.all():
         # eventually this needs to be done in celery
         collection.import_metadata_from_sinequa_config()
+        collection_names = ", ".join(queryset.values_list("name", flat=True))
         messages.add_message(
             request,
             messages.INFO,
