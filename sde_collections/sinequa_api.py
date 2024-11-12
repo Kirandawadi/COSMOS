@@ -162,26 +162,23 @@ class Api:
         Retrieves the full texts, URLs, and titles for a specified collection.
 
         Returns:
-            dict: A JSON response containing the results of the SQL query in an expected format under the 'Rows' key,
-                where each item has 'url1', 'text', and 'title' .
+            dict: A JSON response containing the results of the SQL query,
+                where each item has 'url', 'text', and 'title'.
 
         Example:
             Calling get_full_texts("example_collection") might return:
-            {
-                'Rows': [
+                [
                     {
-                        'url1': 'http://example.com/article1',
+                        'url': 'http://example.com/article1',
                         'text': 'Here is the full text of the first article...',
                         'title': 'Article One Title'
                     },
                     {
-                        'url1': 'http://example.com/article2',
+                        'url': 'http://example.com/article2',
                         'text': 'Here is the full text of the second article...',
                         'title': 'Article Two Title'
                     }
                 ]
-            }
-
         """
 
         if not source:
@@ -191,4 +188,11 @@ class Api:
             raise ValueError("Index not defined for this server")
 
         sql = f"SELECT url1, text, title FROM {index} WHERE collection = '/{source}/{collection_config_folder}/'"
-        return self.sql_query(sql)
+        full_text_response = self.sql_query(sql)
+        return self._process_full_text_response(full_text_response)
+
+    @staticmethod
+    def _process_full_text_response(full_text_response: str):
+        return [
+            {"url": url, "full_text": full_text, "title": title} for url, full_text, title in full_text_response["Rows"]
+        ]

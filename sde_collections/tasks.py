@@ -160,18 +160,16 @@ def fetch_and_update_full_text(collection_id, server_name):
     """
     collection = Collection.objects.get(id=collection_id)
     api = Api(server_name)
-    full_texts = api.get_full_texts(collection.config_folder)
+    documents = api.get_full_texts(collection.config_folder)
 
-    records = full_texts.get("Rows", [])
-    if not records:
-        return "No records found in the response."
-
-    for record in records:
-        url, full_text, title = record
-        if not (url and full_text and title):
+    for doc in documents:
+        # if all values are not present, then it is skipped?
+        if not (doc["url"] and doc["full_text"] and doc["title"]):
             continue
 
         CandidateURL.objects.update_or_create(
-            url=url, collection=collection, defaults={"scraped_text": full_text, "scraped_title": title}
+            url=doc["url"],
+            collection=collection,
+            defaults={"scraped_text": doc["full_text"], "scraped_title": doc["title"]},
         )
-    return f"Successfully processed {len(records)} records and updated the database."
+    return f"Successfully processed {len(documents)} records and updated the database."
