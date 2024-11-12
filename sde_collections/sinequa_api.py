@@ -52,31 +52,62 @@ server_configs = {
 
 
 class Api:
-    def __init__(self, server_name: str = None) -> None:
+    def __init__(self, server_name: str = None, user: str = None, password: str = None, token: str = None) -> None:
         self.server_name = server_name
+        if server_name not in server_configs:
+            raise ValueError(f"Server name '{server_name}' is not in server_configs")
+
         config = server_configs[server_name]
         self.app_name: str = config["app_name"]
         self.query_name: str = config["query_name"]
         self.base_url: str = config["base_url"]
-        self.user = getattr(settings, f"{server_name}_USER".upper(), None)
-        self.password = getattr(settings, f"{server_name}_PASSWORD".upper(), None)
-        self.token = getattr(settings, f"{server_name}_TOKEN".upper(), None)
+        self.dev_servers = ["xli", "lrm_dev", "lrm_qa"]
+
+        # Store provided values only
+        self._provided_user = user
+        self._provided_password = password
+        self._provided_token = token
+
+    def _get_user(self) -> str | None:
+        """Retrieve the user, using the provided value or defaulting to Django settings."""
+        return self._provided_user or getattr(settings, f"{self.server_name}_USER".upper(), None)
+
+    def _get_password(self) -> str | None:
+        """Retrieve the password, using the provided value or defaulting to Django settings."""
+        return self._provided_password or getattr(settings, f"{self.server_name}_PASSWORD".upper(), None)
+
+    def _get_token(self) -> str | None:
+        """Retrieve the token, using the provided value or defaulting to Django settings."""
+        return self._provided_token or getattr(settings, f"{self.server_name}_TOKEN".upper(), None)
+
+    def _get_source_name(self) -> str:
+        """by default, the source is /SDE/. However for the various dev servers, the source is tends to be /scrapers/"""
+        return "scrapers" if self.server_name in self.dev_servers else "SDE"
 
     def process_response(self, url: str, payload: dict[str, Any]) -> Any:
         response = requests.post(url, headers={}, json=payload, verify=False)
 
-        if response.status_code == requests.status_codes.codes.ok:
-            meaningful_response = response.json()
+        if response.status_code == requests.codes.ok:
+            return response.json()
         else:
-            raise Exception(response.text)
-
-        return meaningful_response
+            response.raise_for_status()
 
     def query(self, page: int, collection_config_folder: str = "") -> Any:
-        if self.server_name:
-            url = f"{self.base_url}/api/v1/search.query?Password={self.password}&User={self.user}"
+        url = f"{self.base_url}/api/v1/search.query"
+        if self.server_name in self.dev_servers:
+
+            user = self._get_user()
+            password = self._get_password()
+
+            if not user or not password:
+                raise ValueError(
+                    "User and password are required for the query endpoint on the following servers: {self.dev_servers}"
+                )
+            authentication = f"?Password={password}&User={user}"
+            url = f"{url}{authentication}"
         else:
             url = f"{self.base_url}/api/v1/search.query"
+
         payload = {
             "app": self.app_name,
             "query": {
@@ -89,22 +120,19 @@ class Api:
         }
 
         if collection_config_folder:
-            if self.server_name in ["xli", "lrm_dev", "lrm_qa"]:
-                payload["query"]["advanced"]["collection"] = f"/scrapers/{collection_config_folder}/"
-            else:
-                payload["query"]["advanced"]["collection"] = f"/SDE/{collection_config_folder}/"
+            source = self._get_source_name()
+            payload["query"]["advanced"]["collection"] = f"/{source}/{collection_config_folder}/"
 
-        response = self.process_response(url, payload)
-
-        return response
+        return self.process_response(url, payload)
 
     def sql_query(self, sql: str) -> Any:
         """Executes an SQL query on the configured server using token-based authentication."""
-        if not self.token:
-            raise ValueError("You must have a token to use the SQL endpoint")
+        token = self._get_token()
+        if not token:
+            raise ValueError("A token is required to use the SQL endpoint")
 
         url = f"{self.base_url}/api/v1/engine.sql"
-        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.token}"}
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
         payload = json.dumps(
             {
                 "method": "engine.sql",
@@ -116,14 +144,15 @@ class Api:
                 "engines": "default",
             }
         )
+
         try:
             response = requests.post(url, headers=headers, data=payload, timeout=10)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            raise Exception(f"API request failed: {str(e)}")
+            raise RuntimeError(f"Api request to SQL endpoint failed: {str(e)}")
 
-    def get_full_texts(self, collection_config_folder: str) -> Any:
+    def get_full_texts(self, collection_config_folder: str, source: str = None) -> Any:
         """
         Retrieves the full texts, URLs, and titles for a specified collection.
 
@@ -149,5 +178,9 @@ class Api:
             }
 
         """
-        sql = f"SELECT url1, text, title FROM sde_index WHERE collection = '/SDE/{collection_config_folder}/'"
+
+        if not source:
+            source = self._get_source_name()
+
+        sql = f"SELECT url1, text, title FROM sde_index WHERE collection = '/{source}/{collection_config_folder}/'"
         return self.sql_query(sql)
