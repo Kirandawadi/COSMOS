@@ -116,15 +116,15 @@ class CuratedURLSerializer(serializers.ModelSerializer):
     curated_urls_count = serializers.SerializerMethodField(read_only=True)
 
     def get_curated_urls_count(self, obj):
-        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        deltatitlepattern = obj.deltatitlepattern_curated_urls.last()
         return deltatitlepattern.curated_urls.count() if deltatitlepattern else 0
 
     def get_generated_title_id(self, obj):
-        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        deltatitlepattern = obj.deltatitlepattern_curated_urls.last()
         return deltatitlepattern.id if deltatitlepattern else None
 
     def get_match_pattern_type(self, obj):
-        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        deltatitlepattern = obj.deltatitlepattern_curated_urls.last()
         return deltatitlepattern.match_pattern_type if deltatitlepattern else None
 
     class Meta:
@@ -160,15 +160,15 @@ class DeltaURLSerializer(serializers.ModelSerializer):
     delta_urls_count = serializers.SerializerMethodField(read_only=True)
 
     def get_delta_urls_count(self, obj):
-        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        deltatitlepattern = obj.deltatitlepattern_delta_urls.last()
         return deltatitlepattern.delta_urls.count() if deltatitlepattern else 0
 
     def get_generated_title_id(self, obj):
-        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        deltatitlepattern = obj.deltatitlepattern_delta_urls.last()
         return deltatitlepattern.id if deltatitlepattern else None
 
     def get_match_pattern_type(self, obj):
-        deltatitlepattern = obj.deltatitlepattern_urls.last()
+        deltatitlepattern = obj.deltatitlepattern_delta_urls.last()
         return deltatitlepattern.match_pattern_type if deltatitlepattern else None
 
     class Meta:

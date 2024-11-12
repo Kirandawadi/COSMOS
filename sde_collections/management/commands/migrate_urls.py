@@ -19,15 +19,17 @@ class Command(BaseCommand):
         for collection in collections_for_curated:
             candidate_urls = CandidateURL.objects.filter(collection=collection)
             for candidate_url in candidate_urls:
-                CuratedUrl.objects.create(
-                    collection=candidate_url.collection,
-                    url=candidate_url.url,
-                    scraped_title=candidate_url.scraped_title,
-                    generated_title=candidate_url.generated_title,
-                    visited=candidate_url.visited,
-                    document_type=candidate_url.document_type,
-                    division=candidate_url.division,
-                )
+                # Check if a CuratedUrl with the same URL already exists
+                if not CuratedUrl.objects.filter(url=candidate_url.url).exists():
+                    CuratedUrl.objects.create(
+                        collection=candidate_url.collection,
+                        url=candidate_url.url,
+                        scraped_title=candidate_url.scraped_title,
+                        generated_title=candidate_url.generated_title,
+                        visited=candidate_url.visited,
+                        document_type=candidate_url.document_type,
+                        division=candidate_url.division,
+                    )
             self.stdout.write(
                 f"Migrated {candidate_urls.count()} URLs from collection '{collection.name}' to CuratedUrl."
             )
@@ -41,16 +43,18 @@ class Command(BaseCommand):
         for collection in collections_for_delta:
             candidate_urls = CandidateURL.objects.filter(collection=collection)
             for candidate_url in candidate_urls:
-                DeltaUrl.objects.create(
-                    collection=candidate_url.collection,
-                    url=candidate_url.url,
-                    scraped_title=candidate_url.scraped_title,
-                    generated_title=candidate_url.generated_title,
-                    visited=candidate_url.visited,
-                    document_type=candidate_url.document_type,
-                    division=candidate_url.division,
-                    delete=False,
-                )
+                # Check if a DeltaUrl with the same URL already exists
+                if not DeltaUrl.objects.filter(url=candidate_url.url).exists():
+                    DeltaUrl.objects.create(
+                        collection=candidate_url.collection,
+                        url=candidate_url.url,
+                        scraped_title=candidate_url.scraped_title,
+                        generated_title=candidate_url.generated_title,
+                        visited=candidate_url.visited,
+                        document_type=candidate_url.document_type,
+                        division=candidate_url.division,
+                        delete=False,
+                    )
             self.stdout.write(
                 f"Migrated {candidate_urls.count()} URLs from collection '{collection.name}' to DeltaUrl."
             )
