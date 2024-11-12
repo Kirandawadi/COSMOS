@@ -98,7 +98,7 @@ class Api:
         else:
             response.raise_for_status()
 
-    def query(self, page: int, collection_config_folder: str = "") -> Any:
+    def query(self, page: int, collection_config_folder: str = None, source: str = None) -> Any:
         url = f"{self.base_url}/api/v1/search.query"
         if self.server_name in self.dev_servers:
             user = self._get_user()
@@ -125,7 +125,7 @@ class Api:
         }
 
         if collection_config_folder:
-            source = self._get_source_name()
+            source = source if source else self._get_source_name()
             payload["query"]["advanced"]["collection"] = f"/{source}/{collection_config_folder}/"
 
         return self.process_response(url, payload)
