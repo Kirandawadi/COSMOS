@@ -8,7 +8,6 @@ from django.conf import settings
 from django.core import management
 
 from config import celery_app
-from sde_collections.models.candidate_url import CandidateURL
 
 from .models.collection import Collection, WorkflowStatusChoices
 from .models.delta_url import CuratedUrl, DeltaUrl, DumpUrl
@@ -119,30 +118,31 @@ def _compare_and_populate_delta_urls(collection):
             )
 
 
-def populate_dump_urls(collection):
-    urls = Url.objects.filter(collection=collection)
+# TODO: Bishwas wrote this but it is outdated.
+# def populate_dump_urls(collection):
+#     urls = Url.objects.filter(collection=collection)
 
-    for url_instance in urls:
-        try:
-            # Create DumpUrl by passing in the parent Url fields
-            dump_url_instance = DumpUrl(
-                id=url_instance.id,
-                collection=url_instance.collection,
-                url=url_instance.url,
-                scraped_title=url_instance.scraped_title,
-                visited=url_instance.visited,
-                document_type=url_instance.document_type,
-                division=url_instance.division,
-            )
-            dump_url_instance.save()  # Save both Url and DumpUrl entries
+#     for url_instance in urls:
+#         try:
+#             # Create DumpUrl by passing in the parent Url fields
+#             dump_url_instance = DumpUrl(
+#                 id=url_instance.id,
+#                 collection=url_instance.collection,
+#                 url=url_instance.url,
+#                 scraped_title=url_instance.scraped_title,
+#                 visited=url_instance.visited,
+#                 document_type=url_instance.document_type,
+#                 division=url_instance.division,
+#             )
+#             dump_url_instance.save()  # Save both Url and DumpUrl entries
 
-            print(f"Created DumpUrl: {dump_url_instance.url} - {dump_url_instance.scraped_title}")
+#             print(f"Created DumpUrl: {dump_url_instance.url} - {dump_url_instance.scraped_title}")
 
-        except Exception as e:
-            print(f"Error creating DumpUrl for {url_instance.url}: {str(e)}")
-            continue
+#         except Exception as e:
+#             print(f"Error creating DumpUrl for {url_instance.url}: {str(e)}")
+#             continue
 
-    print(f"Successfully populated DumpUrl model with {urls.count()} entries.")
+#     print(f"Successfully populated DumpUrl model with {urls.count()} entries.")
 
 
 @celery_app.task(soft_time_limit=10000)
@@ -168,8 +168,9 @@ def import_candidate_urls_from_api(server_name="test", collection_ids=[]):
         print("Loading data into Url model using loaddata...")
         management.call_command("loaddata", urls_file)
 
-        print("Creating DumpUrl entries...")
-        populate_dump_urls(collection)
+        # TODO: Bishwas wrote this but it is does not work.
+        # print("Creating DumpUrl entries...")
+        # populate_dump_urls(collection)
 
         print("Applying existing patterns; this may take a while")
         collection.apply_all_patterns()
@@ -253,7 +254,7 @@ def fetch_and_update_full_text(collection_id, server_name):
         if not (doc["url"] and doc["full_text"] and doc["title"]):
             continue
 
-        CandidateURL.objects.update_or_create(
+        DumpUrl.objects.update_or_create(
             url=doc["url"],
             collection=collection,
             defaults={"scraped_text": doc["full_text"], "scraped_title": doc["title"]},
