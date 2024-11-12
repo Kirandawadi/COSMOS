@@ -101,7 +101,6 @@ class Api:
     def query(self, page: int, collection_config_folder: str = "") -> Any:
         url = f"{self.base_url}/api/v1/search.query"
         if self.server_name in self.dev_servers:
-
             user = self._get_user()
             password = self._get_password()
 
