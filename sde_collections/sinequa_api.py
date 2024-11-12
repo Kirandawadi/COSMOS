@@ -17,31 +17,37 @@ server_configs = {
         "app_name": "nasa-sba-smd",
         "query_name": "query-smd-primary",
         "base_url": "https://sciencediscoveryengine.test.nasa.gov",
+        "index": "sde_index",
     },
     "production": {
         "app_name": "nasa-sba-smd",
         "query_name": "query-smd-primary",
         "base_url": "https://sciencediscoveryengine.nasa.gov",
+        "index": "sde_index",
     },
     "secret_test": {
         "app_name": "nasa-sba-sde",
         "query_name": "query-sde-primary",
         "base_url": "https://sciencediscoveryengine.test.nasa.gov",
+        "index": "sde_index",
     },
     "secret_production": {
         "app_name": "nasa-sba-sde",
         "query_name": "query-sde-primary",
         "base_url": "https://sciencediscoveryengine.nasa.gov",
+        "index": "sde_index",
     },
     "xli": {
         "app_name": "nasa-sba-smd",
         "query_name": "query-smd-primary",
         "base_url": "http://sde-xli.nasa-impact.net",
+        "index": "sde_index",
     },
     "lrm_dev": {
         "app_name": "sde-init-check",
         "query_name": "query-init-check",
         "base_url": "https://sde-lrm.nasa-impact.net",
+        "index": "sde_init_check",
     },
     "lrm_qa": {
         "app_name": "sde-init-check",
@@ -57,10 +63,10 @@ class Api:
         if server_name not in server_configs:
             raise ValueError(f"Server name '{server_name}' is not in server_configs")
 
-        config = server_configs[server_name]
-        self.app_name: str = config["app_name"]
-        self.query_name: str = config["query_name"]
-        self.base_url: str = config["base_url"]
+        self.config = server_configs[server_name]
+        self.app_name: str = self.config["app_name"]
+        self.query_name: str = self.config["query_name"]
+        self.base_url: str = self.config["base_url"]
         self.dev_servers = ["xli", "lrm_dev", "lrm_qa"]
 
         # Store provided values only
@@ -130,7 +136,6 @@ class Api:
         token = self._get_token()
         if not token:
             raise ValueError("A token is required to use the SQL endpoint")
-
         url = f"{self.base_url}/api/v1/engine.sql"
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
         payload = json.dumps(
@@ -182,5 +187,8 @@ class Api:
         if not source:
             source = self._get_source_name()
 
-        sql = f"SELECT url1, text, title FROM sde_index WHERE collection = '/{source}/{collection_config_folder}/'"
+        if (index := self.config.get("index")) is None:
+            raise ValueError("Index not defined for this server")
+
+        sql = f"SELECT url1, text, title FROM {index} WHERE collection = '/{source}/{collection_config_folder}/'"
         return self.sql_query(sql)
