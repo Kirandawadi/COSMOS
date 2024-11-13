@@ -5,12 +5,12 @@ from django.utils import timezone
 from sde_collections.models.collection import Collection
 from sde_collections.models.collection_choice_fields import (
     ConnectorChoices,
-    CurationStatusChoices,
     Divisions,
     DocumentTypes,
     UpdateFrequencies,
     WorkflowStatusChoices,
 )
+from sde_collections.models.delta_url import CuratedUrl, DeltaUrl, DumpUrl
 
 User = get_user_model()
 
@@ -50,3 +50,41 @@ class CollectionFactory(factory.django.DjangoModelFactory):
     # ForeignKey to User for `curated_by`
     curated_by = factory.SubFactory(UserFactory)
     curation_started = factory.LazyFunction(timezone.now)
+
+
+class DumpUrlFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DumpUrl
+
+    collection = factory.SubFactory(CollectionFactory)
+    url = factory.Faker("url")
+    scraped_title = factory.Faker("sentence")
+    scraped_text = factory.Faker("paragraph")
+    # generated_title = factory.Faker("sentence")
+    # visited = factory.Faker("boolean")
+    # document_type = 1
+    # division = 1
+
+
+class CuratedUrlFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = CuratedUrl
+
+    collection = factory.SubFactory(CollectionFactory)
+    url = factory.Faker("url")
+    scraped_title = factory.Faker("sentence")
+    scraped_text = factory.Faker("paragraph")
+    generated_title = factory.Faker("sentence")
+    visited = factory.Faker("boolean")
+    document_type = 1
+    division = 1
+
+
+class DeltaUrlFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DeltaUrl
+
+    collection = factory.SubFactory(CollectionFactory)
+    url = factory.Faker("url")
+    scraped_title = factory.Faker("sentence")
+    delete = False
