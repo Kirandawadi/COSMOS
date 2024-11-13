@@ -40,8 +40,25 @@ class BaseUrl(models.Model):
 
     collection = models.ForeignKey("Collection", on_delete=models.CASCADE, related_name="%(class)s_urls")
     url = models.CharField("Url", unique=True)
-    scraped_title = models.CharField("Scraped Title", blank=True, default="")
-    generated_title = models.CharField("Generated Title", blank=True, default="")
+    scraped_title = models.CharField(
+        "Scraped Title",
+        default="",
+        blank=True,
+        help_text="This is the original title scraped by Sinequa",
+    )
+    scraped_text = models.TextField(
+        "Scraped Text",
+        default="",
+        blank=True,
+        help_text="This is the text scraped by Sinequa",
+    )
+    generated_title = models.CharField(
+        "Generated Title",
+        default="",
+        blank=True,
+        help_text="This is the title generated based on a Title Pattern",
+    )
+
     visited = models.BooleanField(default=False)
     document_type = models.IntegerField(choices=DocumentTypes.choices, null=True)
     division = models.IntegerField(choices=Divisions.choices, null=True)

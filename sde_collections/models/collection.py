@@ -26,9 +26,10 @@ from .collection_choice_fields import (
     UpdateFrequencies,
     WorkflowStatusChoices,
 )
-from .delta_url import CuratedUrl, DeltaUrl
+from .delta_url import CuratedUrl, DeltaUrl, DumpUrl
 
 User = get_user_model()
+DELTA_COMPARISON_FIELDS = ["scraped_title"]  # Add more fields as needed
 
 
 class Collection(models.Model):
@@ -83,6 +84,62 @@ class Collection(models.Model):
 
         verbose_name = "Collection"
         verbose_name_plural = "Collections"
+
+    def clear_delta_urls(self):
+        """Clears all DeltaUrls for this collection."""
+        DeltaUrl.objects.filter(collection=self).delete()
+
+    def clear_dump_urls(self):
+        """Clears all DumpUrls for this collection."""
+        DumpUrl.objects.filter(collection=self).delete()
+
+    def migrate_dump_to_delta(self):
+        """Main function to handle migration from DumpUrls to DeltaUrls with specific rules."""
+        # Step 1: Clear existing DeltaUrls for this collection
+        self.clear_delta_urls()
+
+        # Step 2: Fetch all current DumpUrls and CuratedUrls for this collection
+        dump_urls = {url.url: url for url in DumpUrl.objects.filter(collection=self)}
+        curated_urls = {url.url: url for url in CuratedUrl.objects.filter(collection=self)}
+
+        # Step 3: Process each URL in DumpUrls to migrate as needed
+        for url, dump in dump_urls.items():
+            curated = curated_urls.get(url)
+
+            if curated:
+                # Check if any of the comparison fields differ
+                if any(getattr(curated, field) != getattr(dump, field) for field in DELTA_COMPARISON_FIELDS):
+                    self.create_or_update_delta_url(dump, delete=False)
+            else:
+                # New URL, not in CuratedUrls; move it entirely to DeltaUrls
+                self.create_or_update_delta_url(dump, delete=False)
+
+        # Step 4: Identify CuratedUrls missing in DumpUrls and flag them for deletion in DeltaUrls
+        for curated in curated_urls.values():
+            if curated.url not in dump_urls:
+                self.create_or_update_delta_url(curated, delete=True)
+
+        # Step 5: Clear DumpUrls after migration is complete
+        self.clear_dump_urls()
+
+    def create_or_update_delta_url(self, url_instance, delete=False):
+        """
+        Creates or updates a DeltaUrl entry based on the given DumpUrl or CuratedUrl object.
+        If delete is True, only sets the delete flag and url.
+        """
+        if delete:
+            # Only set the URL and delete flag
+            DeltaUrl.objects.update_or_create(collection=self, url=url_instance.url, defaults={"delete": True})
+        else:
+            # Automatically move over all fields from url_instance
+            fields_to_copy = {
+                field.name: getattr(url_instance, field.name)
+                for field in DumpUrl._meta.fields  # Assumes same fields for CuratedUrl via inheritance
+                if field.name not in ["id", "collection", "url"]
+            }
+            fields_to_copy["delete"] = False  # Ensure delete flag is False
+
+            DeltaUrl.objects.update_or_create(collection=self, url=url_instance.url, defaults=fields_to_copy)
 
     def promote_to_curated(self):
         """

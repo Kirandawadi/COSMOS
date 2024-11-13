@@ -118,30 +118,31 @@ def _compare_and_populate_delta_urls(collection):
             )
 
 
-def populate_dump_urls(collection):
-    urls = Url.objects.filter(collection=collection)
+# TODO: Bishwas wrote this but it is outdated.
+# def populate_dump_urls(collection):
+#     urls = Url.objects.filter(collection=collection)
 
-    for url_instance in urls:
-        try:
-            # Create DumpUrl by passing in the parent Url fields
-            dump_url_instance = DumpUrl(
-                id=url_instance.id,
-                collection=url_instance.collection,
-                url=url_instance.url,
-                scraped_title=url_instance.scraped_title,
-                visited=url_instance.visited,
-                document_type=url_instance.document_type,
-                division=url_instance.division,
-            )
-            dump_url_instance.save()  # Save both Url and DumpUrl entries
+#     for url_instance in urls:
+#         try:
+#             # Create DumpUrl by passing in the parent Url fields
+#             dump_url_instance = DumpUrl(
+#                 id=url_instance.id,
+#                 collection=url_instance.collection,
+#                 url=url_instance.url,
+#                 scraped_title=url_instance.scraped_title,
+#                 visited=url_instance.visited,
+#                 document_type=url_instance.document_type,
+#                 division=url_instance.division,
+#             )
+#             dump_url_instance.save()  # Save both Url and DumpUrl entries
 
-            print(f"Created DumpUrl: {dump_url_instance.url} - {dump_url_instance.scraped_title}")
+#             print(f"Created DumpUrl: {dump_url_instance.url} - {dump_url_instance.scraped_title}")
 
-        except Exception as e:
-            print(f"Error creating DumpUrl for {url_instance.url}: {str(e)}")
-            continue
+#         except Exception as e:
+#             print(f"Error creating DumpUrl for {url_instance.url}: {str(e)}")
+#             continue
 
-    print(f"Successfully populated DumpUrl model with {urls.count()} entries.")
+#     print(f"Successfully populated DumpUrl model with {urls.count()} entries.")
 
 
 @celery_app.task(soft_time_limit=10000)
@@ -167,8 +168,9 @@ def import_candidate_urls_from_api(server_name="test", collection_ids=[]):
         print("Loading data into Url model using loaddata...")
         management.call_command("loaddata", urls_file)
 
-        print("Creating DumpUrl entries...")
-        populate_dump_urls(collection)
+        # TODO: Bishwas wrote this but it is does not work.
+        # print("Creating DumpUrl entries...")
+        # populate_dump_urls(collection)
 
         print("Applying existing patterns; this may take a while")
         collection.apply_all_patterns()
@@ -227,3 +229,34 @@ def resolve_title_pattern(title_pattern_id):
     TitlePattern = apps.get_model("sde_collections", "TitlePattern")
     title_pattern = TitlePattern.objects.get(id=title_pattern_id)
     title_pattern.apply()
+
+
+@celery_app.task
+def fetch_and_update_full_text(collection_id, server_name):
+    """
+    Task to fetch and update full text and metadata for all URLs associated with a specified collection
+    from a given server.
+
+    Args:
+        collection_id (int): The identifier for the collection in the database.
+        server_name (str): The name of the server.
+
+    Returns:
+        str: A message indicating the result of the operation, including the number of URLs processed
+             or a message if no records were found.
+    """
+    collection = Collection.objects.get(id=collection_id)
+    api = Api(server_name)
+    documents = api.get_full_texts(collection.config_folder)
+
+    for doc in documents:
+        # if all values are not present, then it is skipped?
+        if not (doc["url"] and doc["full_text"] and doc["title"]):
+            continue
+
+        DumpUrl.objects.update_or_create(
+            url=doc["url"],
+            collection=collection,
+            defaults={"scraped_text": doc["full_text"], "scraped_title": doc["title"]},
+        )
+    return f"Successfully processed {len(documents)} records and updated the database."
