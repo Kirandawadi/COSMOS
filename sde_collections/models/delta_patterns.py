@@ -40,16 +40,26 @@ class BaseMatchPattern(models.Model):
     )
 
     def matched_urls(self):
-        """Find all the urls matching the pattern."""
+        """Find all URLs matching the pattern."""
+        # Dynamically get the DeltaUrl model to avoid circular imports
+        DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
+        CuratedUrl = apps.get_model("sde_collections", "CuratedUrl")
+
+        # Construct the regex pattern based on match type
         escaped_match_pattern = re.escape(self.match_pattern)
         regex_pattern = (
             f"{escaped_match_pattern}$"
             if self.match_pattern_type == self.MatchPatternTypeChoices.INDIVIDUAL_URL
             else escaped_match_pattern.replace(r"\*", ".*")
         )
+
+        # Directly query DeltaUrl and CuratedUrl with collection filter
+        matching_delta_urls = DeltaUrl.objects.filter(collection=self.collection, url__regex=regex_pattern)
+        matching_curated_urls = CuratedUrl.objects.filter(collection=self.collection, url__regex=regex_pattern)
+
         return {
-            "matching_delta_urls": self.delta_urls.filter(url__regex=regex_pattern),
-            "matching_curated_urls": self.curated_urls.filter(url__regex=regex_pattern),
+            "matching_delta_urls": matching_delta_urls,
+            "matching_curated_urls": matching_curated_urls,
         }
 
     def generate_delta_url(self, curated_url, fields_to_copy=None):
@@ -75,26 +85,17 @@ class BaseMatchPattern(models.Model):
     def apply(self, fields_to_copy=None, update_fields=None):
         matched_urls = self.matched_urls()
 
-        # Iterate over matched CuratedUrls to create or update DeltaUrls as needed
+        # Step 1: Generate or update DeltaUrls for each matching CuratedUrl
         for curated_url in matched_urls["matching_curated_urls"]:
             self.generate_delta_url(curated_url, fields_to_copy)
 
-        # Apply any updates to DeltaUrls based on update_fields
+        # Step 2: Apply updates to fields on matching DeltaUrls
         if update_fields:
-            for field, value in update_fields.items():
-                matched_urls["matching_delta_urls"].update(**{field: value})
+            matched_urls["matching_delta_urls"].update(**update_fields)
 
-        # Populate through tables for DeltaUrl and CuratedUrl relationships
-        for field_name, url_ids in {
-            "delta_urls": matched_urls["matching_delta_urls"].values_list("id", flat=True),
-            "curated_urls": matched_urls["matching_curated_urls"].values_list("id", flat=True),
-        }.items():
-            through_model = getattr(self, field_name).through
-            bulk_data = [
-                through_model(**{f"{field_name[:-1]}_id": url_id, f"{self.__class__.__name__.lower()}_id": self.id})
-                for url_id in url_ids
-            ]
-            through_model.objects.bulk_create(bulk_data, ignore_conflicts=True)
+        # Step 3: Populate ManyToMany relationships for DeltaUrls and CuratedUrls
+        self.delta_urls.add(*matched_urls["matching_delta_urls"])
+        self.curated_urls.add(*matched_urls["matching_curated_urls"])
 
     def unapply(self):
         """Default unapply behavior."""
@@ -166,50 +167,97 @@ class DeltaTitlePattern(BaseMatchPattern):
     )
 
     def apply(self) -> None:
-        # Use `fields_to_copy` to copy `scraped_title` for any matching curated URLs.
-        super().apply(fields_to_copy=["scraped_title"])
+        # Dynamically get the DeltaResolvedTitle and DeltaResolvedTitleError models to avoid circular import issues
+        DeltaResolvedTitle = apps.get_model("sde_collections", "DeltaResolvedTitle")
+        DeltaResolvedTitleError = apps.get_model("sde_collections", "DeltaResolvedTitleError")
 
-        matched = self.matched_urls()  # Separate QuerySets for delta and curated URLs
-        ResolvedTitle = apps.get_model("sde_collections", "ResolvedTitle")
-        ResolvedTitleError = apps.get_model("sde_collections", "ResolvedTitleError")
+        matched_urls = self.matched_urls()
 
-        for url_obj in matched["matching_delta_urls"] | matched["matching_curated_urls"]:
-            context = {
-                "url": url_obj.url,
-                "title": url_obj.scraped_title,
-                "collection": self.collection.name,
-            }
-            try:
-                generated_title = resolve_title(self.title_pattern, context)
+        # Step 1: Apply title pattern to matching DeltaUrls
+        for delta_url in matched_urls["matching_delta_urls"]:
+            self.apply_title_to_url(delta_url, DeltaResolvedTitle, DeltaResolvedTitleError)
 
-                # Remove existing resolved title entries for this URL
-                ResolvedTitle.objects.filter(url=url_obj).delete()
+        # Step 2: Check and potentially create DeltaUrls for matching CuratedUrls
+        for curated_url in matched_urls["matching_curated_urls"]:
+            self.create_delta_if_title_differs(curated_url, DeltaResolvedTitle, DeltaResolvedTitleError)
 
-                # Create a new resolved title entry
-                ResolvedTitle.objects.create(title_pattern=self, url=url_obj, resolved_title=generated_title)
+        # Step 3: Update ManyToMany relationships for DeltaUrls and CuratedUrls
+        self.delta_urls.add(*matched_urls["matching_delta_urls"])
+        self.curated_urls.add(*matched_urls["matching_curated_urls"])
 
-                # Update generated title and save it to DeltaUrl or CuratedUrl
-                url_obj.generated_title = generated_title
-                url_obj.save()
+    def create_delta_if_title_differs(self, curated_url, DeltaResolvedTitle, DeltaResolvedTitleError):
+        """
+        Checks if the title generated by the pattern differs from the existing generated title
+        in CuratedUrl. If it does, creates or updates a DeltaUrl with the new title.
+        """
+        # Calculate the title that would be generated if the pattern is applied
+        context = {
+            "url": curated_url.url,
+            "title": curated_url.scraped_title,
+            "collection": self.collection.name,
+        }
+        try:
+            new_generated_title = resolve_title(self.title_pattern, context)
 
-            except (ValueError, ValidationError) as e:
-                message = str(e)
-                resolved_title_error = ResolvedTitleError.objects.create(
-                    title_pattern=self, url=url_obj, error_string=message
+            # Compare against the existing generated title in CuratedUrl
+            if curated_url.generated_title != new_generated_title:
+                # Only create a DeltaUrl if the titles differ
+                DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
+                delta_url, created = DeltaUrl.objects.get_or_create(
+                    collection=self.collection,
+                    url=curated_url.url,
+                    defaults={"scraped_title": curated_url.scraped_title},
                 )
+                delta_url.generated_title = new_generated_title
+                delta_url.save()
+                self.apply_title_to_url(delta_url, DeltaResolvedTitle, DeltaResolvedTitleError)
 
-                # Extract status code if present in the error message
-                status_code = re.search(r"Status code: (\d+)", message)
-                if status_code:
-                    resolved_title_error.http_status_code = int(status_code.group(1))
+        except (ValueError, ValidationError) as e:
+            self.log_title_error(curated_url, DeltaResolvedTitleError, str(e))
 
-                resolved_title_error.save()
+    def apply_title_to_url(self, url_obj, DeltaResolvedTitle, DeltaResolvedTitleError):
+        """
+        Applies the title pattern to a DeltaUrl or CuratedUrl and records the resolved title or errors.
+        """
+        context = {
+            "url": url_obj.url,
+            "title": url_obj.scraped_title,
+            "collection": self.collection.name,
+        }
+        try:
+            generated_title = resolve_title(self.title_pattern, context)
+
+            # Remove existing resolved title entries for this URL
+            DeltaResolvedTitle.objects.filter(delta_url=url_obj).delete()
+
+            # Create a new resolved title entry
+            DeltaResolvedTitle.objects.create(title_pattern=self, delta_url=url_obj, resolved_title=generated_title)
+
+            # Set generated title only on DeltaUrl
+            url_obj.generated_title = generated_title
+            url_obj.save()
+
+        except (ValueError, ValidationError) as e:
+            self.log_title_error(url_obj, DeltaResolvedTitleError, str(e))
+
+    def log_title_error(self, url_obj, DeltaResolvedTitleError, message):
+        """Logs an error when resolving a title."""
+        resolved_title_error = DeltaResolvedTitleError.objects.create(
+            title_pattern=self, delta_url=url_obj, error_string=message
+        )
+        status_code = re.search(r"Status code: (\d+)", message)
+        if status_code:
+            resolved_title_error.http_status_code = int(status_code.group(1))
+        resolved_title_error.save()
 
     def unapply(self) -> None:
-        """Clears generated titles and dissociates URLs from the pattern."""
-        for url_obj in self.delta_urls.all():
-            url_obj.generated_title = ""
-            url_obj.save()
+        """Clears generated titles for DeltaUrls affected by this pattern and dissociates URLs from the pattern."""
+        matched_urls = self.matched_urls()
+
+        # Clear the `generated_title` for all matching DeltaUrls
+        matched_urls["matching_delta_urls"].update(generated_title="")
+
+        # Clear relationships
         self.delta_urls.clear()
         self.curated_urls.clear()
 
