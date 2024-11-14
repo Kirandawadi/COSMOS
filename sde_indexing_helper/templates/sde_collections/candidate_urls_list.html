@@ -71,6 +71,31 @@
                     href="#Division-Patterns">Division Patterns</a>
             </li>
             {% endif %}
+            <li class="nav-item">
+                <a class="tab-nav tabStyle" id="deltaExcludePatternsTab" data-toggle="tab"
+                    href="#Delta-Exclude-Patterns">Delta Exclude
+                    Patterns</a>
+            </li>
+            <li class="nav-item">
+                <a class="tab-nav tabStyle" id="deltaIncludePatternsTab" data-toggle="tab"
+                    href="#Delta-Include-Patterns">Delta Include
+                    Patterns</a>
+            </li>
+            <li class="nav-item">
+                <a class="tab-nav tabStyle" id="deltaTitlePatternsTab" data-toggle="tab"
+                    href="#Delta-Title-Patterns">Delta Title
+                    Patterns</a>
+            </li>
+            <li class="nav-item">
+                <a class="tab-nav tabStyle" id="deltaDocumentTypePatternsTab" data-toggle="tab"
+                    href="#Delta-Document-Type-Patterns">Delta Document Type Patterns</a>
+            </li>
+            {% if is_multi_division %}
+            <li class="nav-item">
+                <a class="tab-nav tabStyle" id="deltaDivisionPatternsTab" data-toggle="tab"
+                    href="#Delta-Division-Patterns">Delta Division Patterns</a>
+            </li>
+            {% endif %}
         </ul>
 
         <!-- Tab panes -->
@@ -496,6 +521,196 @@
                 </table>
             </div>
 
+
+            <div class="tab-pane fade" id="Delta-Exclude-Patterns">
+                <table class="table" id="delta-exclude_patterns_table" style="width:100%">
+                    <thead class="tableHeader">
+                        <tr>
+                            <th scope="col" class="text-center col-1"><strong>Match Pattern</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Match Pattern Type</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Reason</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Affected URLs</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Actions</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>ID</strong></th>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling"
+                                    id="deltaMatchPatternFilter" placeholder="Match Pattern" /></td>
+                            <td> <select id="delta-exclude-patterns-dropdown-1" class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="Individual URL Pattern">Individual URL Pattern</option>
+                                    <option value="Multi-URL Pattern">Multi-URL Pattern</option>
+                                </select>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling" id="deltaReasonFilter"
+                                    placeholder="Reason" /></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </thead>
+                </table>
+                <hr>
+            </div>
+
+            <div class="tab-pane fade" id="Delta-Include-Patterns">
+                <table class="table" id="delta_include_patterns_table" style="width:100%">
+                    <thead class="tableHeader">
+                        <tr>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Match Pattern</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Match Pattern Type</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Affected URLs</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Actions</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>ID</strong>
+                            </th>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling"
+                                    id="deltaIncludeMatchPatternFilter" placeholder="Match Pattern" /></td>
+                            <td> <select id="delta-include-patterns-dropdown-1" class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="Individual URL Pattern">Individual URL Pattern</option>
+                                    <option value="Multi-URL Pattern">Multi-URL Pattern</option>
+                                </select></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </thead>
+                </table>
+
+            </div>
+            <div class="tab-pane fade" id="Delta-Title-Patterns">
+                <table class="table" id="delta_title_patterns_table" style="width:100%">
+                    <thead class="tableHeader">
+                        <tr>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Match Pattern</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Match Pattern Type</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Title Pattern</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Affected URLs</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Actions</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>ID</strong>
+                            </th>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling"
+                                    id="deltaTitleMatchPatternFilter" placeholder="Match Pattern" /></td>
+                            <td> <select id="delta-title-patterns-dropdown-1" class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="Individual URL Pattern">Individual URL Pattern</option>
+                                    <option value="Multi-URL Pattern">Multi-URL Pattern</option>
+                                </select></td>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling"
+                                    id="deltaTitlePatternTypeFilter" placeholder="Title Pattern" /></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tab-pane fade" id="Delta-Document-Type-Patterns">
+                <table class="table" id="delta_document_type_patterns_table" style="width:100%">
+                    <thead class="tableHeader">
+                        <tr>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Match Pattern</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Match Pattern Type</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Document Type</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Affected URLs</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>Actions</strong>
+                            </th>
+                            <th scope="col" class="text-center col-1">
+                                <strong>ID</strong>
+                            </th>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling"
+                                    id="deltaDocTypeMatchPatternFilter" placeholder="Match Pattern" /></td>
+                            <td><select id="delta-document-type-patterns-dropdown-1"
+                                    class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="Individual URL Pattern">Individual URL Pattern</option>
+                                    <option value="Multi-URL Pattern">Multi-URL Pattern</option>
+                                </select></td>
+                            <td><select id="delta-document-type-patterns-dropdown-2"
+                                    class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="Images">Images</option>
+                                    <option value="Data">Data</option>
+                                    <option value="Documentation">Documentation</option>
+                                    <option value="Software and Tools">Software and Tools</option>
+                                    <option value="Missions and Instruments">Missions and Instruments</option>
+                                </select></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tab-pane fade" id="Delta-Division-Patterns">
+                <table class="table" id="delta_division_patterns_table" style="width:100%">
+                    <thead class="tableHeader">
+                        <tr>
+                            <th scope="col" class="text-center col-1"><strong>Match Pattern</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Match Pattern Type</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Division</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Affected URLs</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>Actions</strong></th>
+                            <th scope="col" class="text-center col-1"><strong>ID</strong></th>
+                        </tr>
+                        <tr>
+                            <td><input type="text" class="table_filter_row_input textBoxStyling"
+                                    id="deltaDivisionMatchPatternFilter" placeholder="Match Pattern" /></td>
+                            <td><select id="delta-division-patterns-dropdown-1" class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="Individual URL Pattern">Individual URL Pattern</option>
+                                    <option value="Multi-URL Pattern">Multi-URL Pattern</option>
+                                </select></td>
+                            <td><select id="delta-division-patterns-dropdown-2" class="select-dropdown selectStyling">
+                                    <option value="">SELECT</option>
+                                    <option value="1">Astrophysics</option>
+                                    <option value="2">Biological and Physical Sciences</option>
+                                    <option value="3">Earth Science</option>
+                                    <option value="4">Heliophysics</option>
+                                    <option value="5">Planetary Science</option>
+                                </select></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+
         </div>
     </div>
 
@@ -509,6 +724,11 @@
     <li data-action="title-pattern" class="list-group-item">Create Title Pattern</li>
     <li data-action="document-type-pattern" class="list-group-item">Create Document Type Pattern</li>
     <li data-action="division-pattern" class="list-group-item">Create Division Pattern</li>
+    <li data-action="delta-exclude-pattern" class="list-group-item">Create Delta Exclude Pattern</li>
+    <li data-action="delta-include-pattern" class="list-group-item">Create Delta Include Pattern</li>
+    <li data-action="delta-title-pattern" class="list-group-item">Create Delta Title Pattern</li>
+    <li data-action="delta-document-type-pattern" class="list-group-item">Create Delta Document Type Pattern</li>
+    <li data-action="delta-division-pattern" class="list-group-item">Create Delta Division Pattern</li>
 </ul>
 <div class="modal fade" id="excludePatternModal" data-backdrop="static" data-keyboard="false" tabindex="-1"
     aria-labelledby="excludePatternModalLabel" aria-hidden="true">
@@ -702,6 +922,255 @@
 </div>
 
 
+<div id="hideShowColumnsModal" class="modal pr-4 pl-4 pt-4 customizeColumnContainer">
+    <div class="modalDialog">
+        <div class="modalContent">
+            <div class="modalHeader ">
+                <h5 class="modalTitle whiteText" id="hideShowColumnsModalTitle">Customize Columns</h5>
+                <p id="subTitle" class="whiteText">Attributes marked with a checkbox will be displayed in the table.</p>
+            </div>
+            <form id="hide_show_columns_form">
+                <div class="modalBody whiteText" id="modalBody">
+                </div>
+                <div class="modalFooter customizeColumnContainer">
+                    <div type="submit" class="btn-prime hideShowSubmitButton" id="hideShowSubmitButton">Confirm</div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal" id="deletePatternModal" tabindex="-1" aria-labelledby="deletePatternModal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modalHeader">
+                <button type="button" class="close modal-close" data-dismiss="modal" aria-label="Close"
+                    id="closeDivisionModal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <h5 class="modal-title">Are you sure?</h5>
+                <p class="delete-pattern-caption" id="caption"></p>
+            </div>
+            <div class="modal-footer">
+                <form id="deletePatternModalForm">
+                    <div class="button-wrapper">
+                        <button type="submit" class="btn btn-secondary modal-button-1"
+                            id="dontDeletePattern">No</button>
+                        <button type="submit" class="btn btn-primary modal-button-2" data-dismiss="modal"
+                            id="deletePattern">Yes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deltaExcludePatternModal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+    aria-labelledby="deltaExcludePatternModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deltaExcludePatternModalLabel">Delta Exclude Pattern Form</h5>
+                <button type="button" class="close modal-close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="delta_exclude_pattern_form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="delta_match_pattern_input" class="form-label">Match Pattern <div class="asterik">*
+                            </div>
+                        </label>
+                        <input type="text" class="form-control" id="delta_match_pattern_input" required
+                            name="delta_match_pattern">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="button-wrapper">
+                        <button type="button" class="btn btn-secondary modal-button-1"
+                            data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary modal-button-2">Submit</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="deltaIncludePatternModal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+    aria-labelledby="deltaIncludePatternModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deltaIncludePatternModalLabel">Delta Include Pattern Form</h5>
+                <button type="button" class="close modal-close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="delta_include_pattern_form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="delta_match_pattern_input" class="form-label">Match Pattern <div class="asterik">*
+                            </div>
+                        </label>
+                        <input type="text" class="form-control" id="delta_match_pattern_input" required
+                            name="delta_match_pattern">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="button-wrapper">
+                        <button type="button" class="btn btn-secondary modal-button-1"
+                            data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary modal-button-2">Submit</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="deltaTitlePatternModal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+    aria-labelledby="deltaTitlePatternModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deltaTitlePatternModalLabel">Delta Title Pattern Form</h5>
+                <button type="button" class="close modal-close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="delta_title_pattern_form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="delta_match_pattern_input" class="form-label">Match Pattern <div class="asterik">*
+                            </div>
+                        </label>
+                        <input type="text" class="form-control" id="delta_match_pattern_input" required
+                            name="delta_match_pattern">
+                    </div>
+                    <div class="form-group title_pattern-form-group">
+                        <label for="delta_title_pattern_input" class="form-label">Title Pattern <div class="asterik">*
+                            </div>
+                        </label>
+                        <input type="text" class="form-control" id="delta_title_pattern_input" required
+                            name="delta_title_pattern">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="button-wrapper">
+                        <button type="button" class="btn btn-secondary modal-button-1"
+                            data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary modal-button-2">Submit</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="deltaDocumentTypePatternModal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+    aria-labelledby="deltaDocumentTypePatternModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deltaDocumentTypePatternModalLabel">Delta Document Type Pattern Form</h5>
+                <button type="button" class="close modal-close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="delta_document_type_pattern_form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="delta_match_pattern_input" class="form-label">Match Pattern <div class="asterik">*
+                            </div>
+                        </label>
+                        <input type="text" class="form-control" id="delta_match_pattern_input" required
+                            name="delta_match_pattern">
+                    </div>
+                    <div class="form-group">
+                        <div class="input-group">
+                            <input type="hidden" name="delta_document_type_pattern" class="form-control"
+                                aria-label="Document Type" id="delta_doc_type_input_field">
+                            <div class="input-group-append doc-dropdown-input">
+                                <button class="btn btn-secondary btn-block dropdown-toggle doc-dropdown" type="button"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Select Document
+                                    Type</button>
+                                <div class="doc-type-form dropdown-menu">
+                                    <a class="dropdown-item document_type_form_select" value="1">Images</a>
+                                    <a class="dropdown-item document_type_form_select" value="2">Data</a>
+                                    <a class="dropdown-item document_type_form_select" value="3">Documentation</a>
+                                    <a class="dropdown-item document_type_form_select" value="4">Software and Tools</a>
+                                    <a class="dropdown-item document_type_form_select" value="5">Missions and
+                                        Instruments</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="button-wrapper">
+                        <button type="button" class="btn btn-secondary modal-button-1"
+                            data-dismiss="modal">Close</button>
+                        <button type="submit"
+                            class="document-type-submit btn btn-primary modal-button-2">Submit</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="deltaDivisionPatternModal" data-backdrop="static" data-keyboard="false" tabindex="-1"
+    aria-labelledby="deltaDivisionPatternModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deltaDivisionPatternModalLabel">Delta Division Pattern Form</h5>
+                <button type="button" class="close modal-close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="delta_division_pattern_form">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="delta_division_match_pattern_input" class="form-label">Match Pattern <div
+                                class="asterik">
+                                *</div></label>
+                        <input type="text" class="form-control" id="delta_division_match_pattern_input" required
+                            name="delta_match_pattern">
+                    </div>
+                    <div class="form-group">
+                        <div class="input-group">
+                            <input type="hidden" name="delta_division_pattern" class="form-control"
+                                aria-label="Division" id="delta_division_input_field">
+                            <div class="input-group-append division-dropdown-input">
+                                <button class="btn btn-secondary btn-block dropdown-toggle division-dropdown"
+                                    type="button" data-toggle="dropdown" aria-haspopup="true"
+                                    aria-expanded="false">Select Division</button>
+                                <div class="division-form dropdown-menu">
+                                    <a class="dropdown-item division_form_select" value="1">Astrophysics</a>
+                                    <a class="dropdown-item division_form_select" value="2">Biological and Physical
+                                        Sciences</a>
+                                    <a class="dropdown-item division_form_select" value="3">Earth Science</a>
+                                    <a class="dropdown-item division_form_select" value="4">Heliophysics</a>
+                                    <a class="dropdown-item division_form_select" value="5">Planetary Science</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="button-wrapper">
+                        <button type="button" class="btn btn-secondary modal-button-1"
+                            data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary modal-button-2">Submit</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Validate if the below is required for delta -->
 <div id="hideShowColumnsModal" class="modal pr-4 pl-4 pt-4 customizeColumnContainer">
     <div class="modalDialog">
         <div class="modalContent">
