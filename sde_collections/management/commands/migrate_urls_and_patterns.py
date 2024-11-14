@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Count
 
-from sde_collections.models.candidate_url import CandidateURL
 from sde_collections.models.collection import Collection
 from sde_collections.models.collection_choice_fields import WorkflowStatusChoices
 from sde_collections.models.delta_patterns import (
@@ -26,35 +25,40 @@ class Command(BaseCommand):
     help = """Migrate CandidateURLs to DeltaUrl, apply the matching patterns,
             and then promoting to CuratedUrl based on collection workflow status"""
 
+    BATCH_SIZE = 100000  # Adjusted batch size for memory management
+
     def handle(self, *args, **kwargs):
         all_collections_with_urls = Collection.objects.annotate(url_count=Count("candidate_urls")).filter(
             url_count__gt=0
         )
 
         # Migrate all CandidateURLs to DeltaUrl
-        for collection in all_collections_with_urls:
-            candidate_urls = CandidateURL.objects.filter(collection=collection)
-            delta_urls = []
-            for candidate_url in candidate_urls:
-                # Check if a DeltaUrl with the same URL already exists
-                if not DeltaUrl.objects.filter(url=candidate_url.url).exists():
-                    delta_urls.append(
-                        DeltaUrl(
-                            collection=candidate_url.collection,
-                            url=candidate_url.url,
-                            scraped_title=candidate_url.scraped_title,
-                            generated_title=candidate_url.generated_title,
-                            visited=candidate_url.visited,
-                            document_type=candidate_url.document_type,
-                            division=candidate_url.division,
-                            delete=False,
-                        )
-                    )
-            if delta_urls:
-                DeltaUrl.objects.bulk_create(delta_urls, ignore_conflicts=True)
-            self.stdout.write(
-                f"Migrated {candidate_urls.count()} URLs from collection '{collection.name}' to DeltaUrl."
-            )
+        # for collection in all_collections_with_urls:
+        #     candidate_urls = CandidateURL.objects.filter(collection=collection)
+        #     delta_urls = []
+        #     for candidate_url in candidate_urls:
+        #         if not DeltaUrl.objects.filter(url=candidate_url.url).exists():
+        #             delta_urls.append(
+        #                 DeltaUrl(
+        #                     collection=candidate_url.collection,
+        #                     url=candidate_url.url,
+        #                     scraped_title=candidate_url.scraped_title,
+        #                     generated_title=candidate_url.generated_title,
+        #                     visited=candidate_url.visited,
+        #                     document_type=candidate_url.document_type,
+        #                     division=candidate_url.division,
+        #                     delete=False,
+        #                 )
+        #             )
+        #         if len(delta_urls) >= self.BATCH_SIZE:
+        #             DeltaUrl.objects.bulk_create(delta_urls, ignore_conflicts=True)
+        #             delta_urls = []  # Clear list after batch insertion
+
+        #     if delta_urls:
+        #         DeltaUrl.objects.bulk_create(delta_urls, ignore_conflicts=True)
+        #     self.stdout.write(
+        #         f"Migrated {candidate_urls.count()} URLs from collection '{collection.name}' to DeltaUrl."
+        #     )
 
         # Migrate Patterns
         with transaction.atomic():
@@ -78,7 +82,6 @@ class Command(BaseCommand):
         for collection in all_curated_collections_with_urls:
             candidate_urls = DeltaUrl.objects.filter(collection=collection)
             for candidate_url in candidate_urls:
-                # Check if a CuratedUrl with the same URL already exists
                 if not CuratedUrl.objects.filter(url=candidate_url.url).exists():
                     curated_urls_to_create.append(
                         CuratedUrl(
@@ -91,6 +94,10 @@ class Command(BaseCommand):
                             division=candidate_url.division,
                         )
                     )
+                if len(curated_urls_to_create) >= self.BATCH_SIZE:
+                    CuratedUrl.objects.bulk_create(curated_urls_to_create, ignore_conflicts=True)
+                    curated_urls_to_create = []  # Clear list after batch insertion
+
             if curated_urls_to_create:
                 CuratedUrl.objects.bulk_create(curated_urls_to_create, ignore_conflicts=True)
             self.stdout.write(
@@ -108,9 +115,18 @@ class Command(BaseCommand):
                 reason=pattern.reason,
             )
             exclude_patterns_to_create.append(exclude_pattern)
-            exclude_pattern.apply()
+            if len(exclude_patterns_to_create) >= self.BATCH_SIZE:
+                DeltaExcludePattern.objects.bulk_create(exclude_patterns_to_create)
+                created_patterns = DeltaExcludePattern.objects.filter(pk__in=[p.pk for p in exclude_patterns_to_create])
+                for pattern in created_patterns:
+                    pattern.apply()
+                exclude_patterns_to_create = []
+
         if exclude_patterns_to_create:
             DeltaExcludePattern.objects.bulk_create(exclude_patterns_to_create)
+            created_patterns = DeltaExcludePattern.objects.filter(pk__in=[p.pk for p in exclude_patterns_to_create])
+            for pattern in created_patterns:
+                pattern.apply()
 
     def migrate_include_patterns(self):
         self.stdout.write("Migrating Include Patterns...")
@@ -122,9 +138,18 @@ class Command(BaseCommand):
                 match_pattern_type=pattern.match_pattern_type,
             )
             include_patterns_to_create.append(include_pattern)
-            include_pattern.apply()
+            if len(include_patterns_to_create) >= self.BATCH_SIZE:
+                DeltaIncludePattern.objects.bulk_create(include_patterns_to_create)
+                created_patterns = DeltaIncludePattern.objects.filter(pk__in=[p.pk for p in include_patterns_to_create])
+                for pattern in created_patterns:
+                    pattern.apply()
+                include_patterns_to_create = []
+
         if include_patterns_to_create:
             DeltaIncludePattern.objects.bulk_create(include_patterns_to_create)
+            created_patterns = DeltaIncludePattern.objects.filter(pk__in=[p.pk for p in include_patterns_to_create])
+            for pattern in created_patterns:
+                pattern.apply()
 
     def migrate_title_patterns(self):
         self.stdout.write("Migrating Title Patterns...")
@@ -137,9 +162,18 @@ class Command(BaseCommand):
                 title_pattern=pattern.title_pattern,
             )
             title_patterns_to_create.append(title_pattern)
-            title_pattern.apply()
+            if len(title_patterns_to_create) >= self.BATCH_SIZE:
+                DeltaTitlePattern.objects.bulk_create(title_patterns_to_create)
+                created_patterns = DeltaTitlePattern.objects.filter(pk__in=[p.pk for p in title_patterns_to_create])
+                for pattern in created_patterns:
+                    pattern.apply()
+                title_patterns_to_create = []
+
         if title_patterns_to_create:
             DeltaTitlePattern.objects.bulk_create(title_patterns_to_create)
+            created_patterns = DeltaTitlePattern.objects.filter(pk__in=[p.pk for p in title_patterns_to_create])
+            for pattern in created_patterns:
+                pattern.apply()
 
     def migrate_document_type_patterns(self):
         self.stdout.write("Migrating Document Type Patterns...")
@@ -152,9 +186,22 @@ class Command(BaseCommand):
                 document_type=pattern.document_type,
             )
             doc_type_patterns_to_create.append(doc_type_pattern)
-            doc_type_pattern.apply()
+            if len(doc_type_patterns_to_create) >= self.BATCH_SIZE:
+                DeltaDocumentTypePattern.objects.bulk_create(doc_type_patterns_to_create)
+                created_patterns = DeltaDocumentTypePattern.objects.filter(
+                    pk__in=[p.pk for p in doc_type_patterns_to_create]
+                )
+                for pattern in created_patterns:
+                    pattern.apply()
+                doc_type_patterns_to_create = []
+
         if doc_type_patterns_to_create:
             DeltaDocumentTypePattern.objects.bulk_create(doc_type_patterns_to_create)
+            created_patterns = DeltaDocumentTypePattern.objects.filter(
+                pk__in=[p.pk for p in doc_type_patterns_to_create]
+            )
+            for pattern in created_patterns:
+                pattern.apply()
 
     def migrate_division_patterns(self):
         self.stdout.write("Migrating Division Patterns...")
@@ -167,9 +214,20 @@ class Command(BaseCommand):
                 division=pattern.division,
             )
             division_patterns_to_create.append(division_pattern)
-            division_pattern.apply()
+            if len(division_patterns_to_create) >= self.BATCH_SIZE:
+                DeltaDivisionPattern.objects.bulk_create(division_patterns_to_create)
+                created_patterns = DeltaDivisionPattern.objects.filter(
+                    pk__in=[p.pk for p in division_patterns_to_create]
+                )
+                for pattern in created_patterns:
+                    pattern.apply()
+                division_patterns_to_create = []
+
         if division_patterns_to_create:
             DeltaDivisionPattern.objects.bulk_create(division_patterns_to_create)
+            created_patterns = DeltaDivisionPattern.objects.filter(pk__in=[p.pk for p in division_patterns_to_create])
+            for pattern in created_patterns:
+                pattern.apply()
 
         # # Migrate CandidateURLs to DeltaUrl
         # all_collections = Collection.objects.all()
