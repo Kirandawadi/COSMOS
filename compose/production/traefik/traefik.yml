@@ -42,7 +42,7 @@ http:
         certResolver: letsencrypt
 
     flower-secure-router:
-      rule: "Host(`${TRAEFIK_DOMAIN}`)"
+      rule: 'Host(`{{ env "TRAEFIK_DOMAIN" }}`)'
       entryPoints:
         - flower
       service: flower
