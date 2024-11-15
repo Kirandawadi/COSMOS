@@ -31,7 +31,7 @@ certificatesResolvers:
 http:
   routers:
     web-secure-router:
-      rule: "Host(`${TRAEFIK_DOMAIN}`)" # Dynamic domain using environment variable
+      rule: 'Host(`{{ env "TRAEFIK_DOMAIN" }}`)'
       entryPoints:
         - web-secure
       middlewares:
