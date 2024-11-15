@@ -38,7 +38,6 @@ class CuratedUrlManager(models.Manager):
 class BaseUrl(models.Model):
     """Abstract base class for Urls with shared fields and methods."""
 
-    collection = models.ForeignKey("Collection", on_delete=models.CASCADE, related_name="%(class)s_urls")
     url = models.CharField("Url", unique=True)
     scraped_title = models.CharField(
         "Scraped Title",
@@ -113,6 +112,8 @@ class BaseUrl(models.Model):
 class DumpUrl(BaseUrl):
     """Stores the raw dump from the server before deltas are calculated."""
 
+    collection = models.ForeignKey("Collection", on_delete=models.CASCADE, related_name="dump_urls")
+
     class Meta:
         verbose_name = "Dump Urls"
         verbose_name_plural = "Dump Urls"
@@ -121,6 +122,8 @@ class DumpUrl(BaseUrl):
 
 class DeltaUrl(BaseUrl):
     """Urls that are being curated. Only deltas are stored in this model."""
+
+    collection = models.ForeignKey("Collection", on_delete=models.CASCADE, related_name="delta_urls")
 
     objects = DeltaUrlManager()
     delete = models.BooleanField(default=False)
@@ -133,6 +136,8 @@ class DeltaUrl(BaseUrl):
 
 class CuratedUrl(BaseUrl):
     """Urls that are curated and ready for production"""
+
+    collection = models.ForeignKey("Collection", on_delete=models.CASCADE, related_name="curated_urls")
 
     objects = CuratedUrlManager()
 
