@@ -6,6 +6,7 @@ import boto3
 from django.apps import apps
 from django.conf import settings
 from django.core import management
+from django.db import IntegrityError
 
 from config import celery_app
 
@@ -232,31 +233,40 @@ def resolve_title_pattern(title_pattern_id):
 
 
 @celery_app.task
-def fetch_and_update_full_text(collection_id, server_name):
+def fetch_and_replace_full_text(collection_id, server_name):
     """
-    Task to fetch and update full text and metadata for all URLs associated with a specified collection
-    from a given server.
+    Task to fetch and replace full text and metadata for all URLs associated with a specified collection
+    from a given server. This task deletes all existing DumpUrl entries for the collection and creates
+    new entries based on the latest fetched data.
 
     Args:
         collection_id (int): The identifier for the collection in the database.
         server_name (str): The name of the server.
 
     Returns:
-        str: A message indicating the result of the operation, including the number of URLs processed
-             or a message if no records were found.
+        str: A message indicating the result of the operation, including the number of URLs processed.
     """
     collection = Collection.objects.get(id=collection_id)
     api = Api(server_name)
     documents = api.get_full_texts(collection.config_folder)
 
-    for doc in documents:
-        # if all values are not present, then it is skipped?
-        if not (doc["url"] and doc["full_text"] and doc["title"]):
-            continue
+    # Step 1: Delete all existing DumpUrl entries for the collection
+    deleted_count, _ = DumpUrl.objects.filter(collection=collection).delete()
+    print(f"Deleted {deleted_count} existing DumpUrl entries for collection '{collection.config_name}'.")
 
-        DumpUrl.objects.update_or_create(
-            url=doc["url"],
-            collection=collection,
-            defaults={"scraped_text": doc["full_text"], "scraped_title": doc["title"]},
-        )
+    # Step 2: Create new DumpUrl entries from the fetched documents
+    processed_count = 0
+    for doc in documents:
+        try:
+            DumpUrl.objects.create(
+                url=doc["url"],
+                collection=collection,
+                scraped_text=doc.get("full_text", ""),
+                scraped_title=doc.get("title", ""),
+            )
+            processed_count += 1
+        except IntegrityError:
+            # Handle duplicate URL case if needed
+            print(f"Duplicate URL found, skipping: {doc['url']}")
+
     return f"Successfully processed {len(documents)} records and updated the database."

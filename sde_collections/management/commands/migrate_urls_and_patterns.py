@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.core.management.base import BaseCommand
 from django.db.models import Count
 
@@ -20,119 +21,96 @@ from sde_collections.models.pattern import (
     TitlePattern,
 )
 
+STATUSES_TO_MIGRATE = [
+    WorkflowStatusChoices.CURATED,
+    WorkflowStatusChoices.QUALITY_FIXED,
+    WorkflowStatusChoices.SECRET_DEPLOYMENT_STARTED,
+    WorkflowStatusChoices.SECRET_DEPLOYMENT_FAILED,
+    WorkflowStatusChoices.READY_FOR_LRM_QUALITY_CHECK,
+    WorkflowStatusChoices.READY_FOR_FINAL_QUALITY_CHECK,
+    WorkflowStatusChoices.QUALITY_CHECK_FAILED,
+    WorkflowStatusChoices.QUALITY_CHECK_MINOR,
+    WorkflowStatusChoices.QUALITY_CHECK_PERFECT,
+    WorkflowStatusChoices.PROD_PERFECT,
+    WorkflowStatusChoices.PROD_MINOR,
+    WorkflowStatusChoices.PROD_MAJOR,
+]
+
 
 class Command(BaseCommand):
     help = """Migrate CandidateURLs to DeltaUrl, apply the matching patterns,
-            and then promoting to CuratedUrl based on collection workflow status"""
+            and then promote to CuratedUrl based on collection workflow status"""
 
     def handle(self, *args, **kwargs):
-        # all_collections = Collection.objects.all()
+        # Clear all Delta instances
+        CuratedUrl.objects.all().delete()
+        DeltaUrl.objects.all().delete()
+        DeltaExcludePattern.objects.all().delete()
+        DeltaIncludePattern.objects.all().delete()
+        DeltaTitlePattern.objects.all().delete()
+        DeltaDocumentTypePattern.objects.all().delete()
+        DeltaDivisionPattern.objects.all().delete()
+
+        # Get collections with Candidate URLs
         all_collections_with_urls = Collection.objects.annotate(url_count=Count("candidate_urls")).filter(
             url_count__gt=0
         )
 
-        # Migrate all CandidateURLs to DeltaUrl
+        # Migrate all CandidateURLs to DeltaUrl using bulk creation
         for collection in all_collections_with_urls:
-            candidate_urls = CandidateURL.objects.filter(collection=collection)
-            for candidate_url in candidate_urls:
-                # Check if a DeltaUrl with the same URL already exists
-                if not DeltaUrl.objects.filter(url=candidate_url.url).exists():
-                    DeltaUrl.objects.create(
-                        collection=candidate_url.collection,
-                        url=candidate_url.url,
-                        scraped_title=candidate_url.scraped_title,
-                        generated_title=candidate_url.generated_title,
-                        visited=candidate_url.visited,
-                        document_type=candidate_url.document_type,
-                        division=candidate_url.division,
-                        delete=False,
-                    )
-            self.stdout.write(
-                f"Migrated {candidate_urls.count()} URLs from collection '{collection.name}' to DeltaUrl."
-            )
-            # break
+            delta_urls = [
+                DeltaUrl(
+                    collection=candidate_url.collection,
+                    url=candidate_url.url,
+                    scraped_title=candidate_url.scraped_title,
+                    generated_title=candidate_url.generated_title,
+                    visited=candidate_url.visited,
+                    document_type=candidate_url.document_type,
+                    division=candidate_url.division,
+                    delete=False,
+                )
+                for candidate_url in CandidateURL.objects.filter(collection=collection)
+            ]
+            DeltaUrl.objects.bulk_create(delta_urls)
 
         # Migrate Patterns
-
-        self.migrate_exclude_patterns()
-        self.migrate_include_patterns()
-        self.migrate_title_patterns()
-        self.migrate_document_type_patterns()
-        self.migrate_division_patterns()
+        self.migrate_patterns(ExcludePattern)
+        self.migrate_patterns(IncludePattern)
+        self.migrate_patterns(TitlePattern)
+        self.migrate_patterns(DocumentTypePattern)
+        self.migrate_patterns(DivisionPattern)
         self.stdout.write(self.style.SUCCESS("Patterns migration complete."))
 
-        # Migrate DeltaUrl for collections with CURATED or higher workflow status to CuratedUrl
-        all_curated_collections_with_urls = all_collections_with_urls.filter(
-            workflow_status__gte=WorkflowStatusChoices.CURATED
-        )
+        # Promote DeltaUrls to CuratedUrl for collections with relevant statuses
+        all_curated_collections_with_urls = all_collections_with_urls.filter(workflow_status__in=STATUSES_TO_MIGRATE)
         self.stdout.write(
             f"""Migrating URLs for {all_curated_collections_with_urls.count()} collections
             with CURATED or higher status..."""
         )
-
         for collection in all_curated_collections_with_urls:
-            candidate_urls = DeltaUrl.objects.filter(collection=collection)
-            for candidate_url in candidate_urls:
-                # Check if a CuratedUrl with the same URL already exists
-                if not CuratedUrl.objects.filter(url=candidate_url.url).exists():
-                    CuratedUrl.objects.create(
-                        collection=candidate_url.collection,
-                        url=candidate_url.url,
-                        scraped_title=candidate_url.scraped_title,
-                        generated_title=candidate_url.generated_title,
-                        visited=candidate_url.visited,
-                        document_type=candidate_url.document_type,
-                        division=candidate_url.division,
-                    )
-            self.stdout.write(
-                f"Migrated {candidate_urls.count()} URLs from collection '{collection.name}' to CuratedUrl."
-            )
+            collection.promote_to_curated()
 
-    def migrate_exclude_patterns(self):
-        self.stdout.write("Migrating Exclude Patterns...")
-        for pattern in ExcludePattern.objects.all():
-            delta_pattern, created = DeltaExcludePattern.objects.get_or_create(
-                collection=pattern.collection,
-                match_pattern=pattern.match_pattern,
-                match_pattern_type=pattern.match_pattern_type,
-                reason=pattern.reason,
-            )
+    def migrate_patterns(self, non_delta_model):
+        """Migrate patterns from a non-delta model to the corresponding delta model."""
+        # Determine the delta model name and fetch the model class
+        delta_model_name = "Delta" + non_delta_model.__name__
+        delta_model = apps.get_model(non_delta_model._meta.app_label, delta_model_name)
 
-    def migrate_include_patterns(self):
-        self.stdout.write("Migrating Include Patterns...")
-        for pattern in IncludePattern.objects.all():
-            delta_pattern, created = DeltaIncludePattern.objects.get_or_create(
-                collection=pattern.collection,
-                match_pattern=pattern.match_pattern,
-                match_pattern_type=pattern.match_pattern_type,
-            )
+        self.stdout.write(f"Migrating patterns from {non_delta_model.__name__} to {delta_model_name}...")
 
-    def migrate_title_patterns(self):
-        self.stdout.write("Migrating Title Patterns...")
-        for pattern in TitlePattern.objects.all():
-            delta_pattern, created = DeltaTitlePattern.objects.get_or_create(
-                collection=pattern.collection,
-                match_pattern=pattern.match_pattern,
-                match_pattern_type=pattern.match_pattern_type,
-                title_pattern=pattern.title_pattern,
-            )
+        # Get all field names from both models except 'id' (primary key)
+        non_delta_fields = {field.name for field in non_delta_model._meta.fields if field.name != "id"}
+        delta_fields = {field.name for field in delta_model._meta.fields if field.name != "id"}
 
-    def migrate_document_type_patterns(self):
-        self.stdout.write("Migrating Document Type Patterns...")
-        for pattern in DocumentTypePattern.objects.all():
-            delta_pattern, created = DeltaDocumentTypePattern.objects.get_or_create(
-                collection=pattern.collection,
-                match_pattern=pattern.match_pattern,
-                match_pattern_type=pattern.match_pattern_type,
-                document_type=pattern.document_type,
-            )
+        # Find shared fields
+        shared_fields = non_delta_fields.intersection(delta_fields)
 
-    def migrate_division_patterns(self):
-        self.stdout.write("Migrating Division Patterns...")
-        for pattern in DivisionPattern.objects.all():
-            delta_pattern, created = DeltaDivisionPattern.objects.get_or_create(
-                collection=pattern.collection,
-                match_pattern=pattern.match_pattern,
-                match_pattern_type=pattern.match_pattern_type,
-                division=pattern.division,
-            )
+        for pattern in non_delta_model.objects.all():
+            # Build the dictionary of shared fields to copy
+            delta_fields_data = {field: getattr(pattern, field) for field in shared_fields}
+
+            # Create an instance of the delta model and save it to call the custom save() method
+            delta_instance = delta_model(**delta_fields_data)
+            delta_instance.save()  # Explicitly call save() to trigger custom logic
+
+        self.stdout.write(f"Migration completed for {non_delta_model.__name__} to {delta_model_name}.")

@@ -12,23 +12,23 @@ from .models.candidate_url import CandidateURL, ResolvedTitle
 from .models.collection import Collection, WorkflowHistory
 from .models.delta_url import CuratedUrl, DeltaResolvedTitle, DeltaUrl, DumpUrl
 from .models.pattern import DivisionPattern, IncludePattern, TitlePattern
-from .tasks import fetch_and_update_full_text, import_candidate_urls_from_api
+from .tasks import fetch_and_replace_full_text, import_candidate_urls_from_api
 
 
-def fetch_and_update_text_for_server(modeladmin, request, queryset, server_name):
+def fetch_and_replace_text_for_server(modeladmin, request, queryset, server_name):
     for collection in queryset:
-        fetch_and_update_full_text.delay(collection.id, server_name)
+        fetch_and_replace_full_text.delay(collection.id, server_name)
     modeladmin.message_user(request, f"Started importing URLs from {server_name.upper()} Server")
 
 
 @admin.action(description="Import candidate URLs from LRM Dev Server with Full Text")
 def fetch_full_text_lrm_dev_action(modeladmin, request, queryset):
-    fetch_and_update_text_for_server(modeladmin, request, queryset, "lrm_dev")
+    fetch_and_replace_text_for_server(modeladmin, request, queryset, "lrm_dev")
 
 
 @admin.action(description="Import candidate URLs from XLI Server with Full Text")
-def fetch_full_text_lis_action(modeladmin, request, queryset):
-    fetch_and_update_text_for_server(modeladmin, request, queryset, "xli")
+def fetch_full_text_xli_action(modeladmin, request, queryset):
+    fetch_and_replace_text_for_server(modeladmin, request, queryset, "xli")
 
 
 @admin.action(description="Generate deployment message")
@@ -254,15 +254,8 @@ class CollectionAdmin(admin.ModelAdmin, ExportCsvMixin, UpdateConfigMixin):
         "export_as_csv",
         "update_config",
         download_candidate_urls_as_csv,
-        import_candidate_urls_test,
-        import_candidate_urls_production,
-        import_candidate_urls_secret_test,
-        import_candidate_urls_secret_production,
-        import_candidate_urls_xli_server,
-        import_candidate_urls_lrm_dev_server,
-        import_candidate_urls_lrm_qa_server,
         fetch_full_text_lrm_dev_action,
-        fetch_full_text_lis_action,
+        fetch_full_text_xli_action,
     ]
     ordering = ("cleaning_order",)
 
