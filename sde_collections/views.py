@@ -26,7 +26,7 @@ from .models.collection_choice_fields import (
     DocumentTypes,
     WorkflowStatusChoices,
 )
-from .models.delta_url import DeltaURL, ResolvedTitle, ResolvedTitleError
+from .models.delta_url import DeltaResolvedTitle, DeltaResolvedTitleError, DeltaUrl
 from .models.pattern import (
     DivisionPattern,
     DocumentTypePattern,
@@ -189,7 +189,7 @@ class DeltaURLsListView(LoginRequiredMixin, ListView):
     Display a list of collections in the system
     """
 
-    model = DeltaURL
+    model = DeltaUrl
     template_name = "sde_collections/delta_urls_list.html"
     context_object_name = "delta_urls"
     # paginate_by = 1000
@@ -255,7 +255,7 @@ class CollectionFilterMixin:
 
 
 class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaURL.objects.all()
+    queryset = DeltaUrl.objects.all()
     serializer_class = DeltaURLSerializer
 
     def _filter_by_is_excluded(self, queryset, is_excluded):
@@ -275,7 +275,7 @@ class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
         return queryset.order_by("url")
 
     def update_division(self, request, pk=None):
-        delta_url = get_object_or_404(DeltaURL, pk=pk)
+        delta_url = get_object_or_404(DeltaUrl, pk=pk)
         division = request.data.get("division")
         if division:
             delta_url.division = division
@@ -285,7 +285,7 @@ class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
 
 
 class DeltaURLBulkCreateView(generics.ListCreateAPIView):
-    queryset = DeltaURL.objects.all()
+    queryset = DeltaUrl.objects.all()
     serializer_class = DeltaURLBulkCreateSerializer
 
     def perform_create(self, serializer, collection_id=None):
@@ -317,7 +317,7 @@ class DeltaURLAPIView(ListAPIView):
 
     def get_queryset(self):
         queryset = (
-            DeltaURL.objects.filter(collection__config_folder=self.config_folder)
+            DeltaUrl.objects.filter(collection__config_folder=self.config_folder)
             .with_exclusion_status()
             .filter(excluded=False)
         )
@@ -536,19 +536,19 @@ class WebappGitHubConsolidationView(LoginRequiredMixin, TemplateView):
 
 
 class ResolvedTitleListView(ListView):
-    model = ResolvedTitle
+    model = DeltaResolvedTitle
     context_object_name = "resolved_titles"
 
 
 class ResolvedTitleErrorListView(ListView):
-    model = ResolvedTitleError
+    model = DeltaResolvedTitleError
     context_object_name = "resolved_title_errors"
 
 
 class TitlesAndErrorsView(View):
     def get(self, request, *args, **kwargs):
-        resolved_titles = ResolvedTitle.objects.select_related("title_pattern", "delta_url").all()
-        resolved_title_errors = ResolvedTitleError.objects.select_related("title_pattern", "delta_url").all()
+        resolved_titles = DeltaResolvedTitle.objects.select_related("title_pattern", "delta_url").all()
+        resolved_title_errors = DeltaResolvedTitleError.objects.select_related("title_pattern", "delta_url").all()
         context = {
             "resolved_titles": resolved_titles,
             "resolved_title_errors": resolved_title_errors,

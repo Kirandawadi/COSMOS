@@ -2,14 +2,14 @@ from rest_framework import serializers
 
 from .models.collection import Collection, WorkflowHistory
 from .models.collection_choice_fields import Divisions, DocumentTypes
-from .models.delta_url import DeltaURL
-from .models.pattern import (
+from .models.delta_patterns import (
     DeltaDivisionPattern,
     DeltaDocumentTypePattern,
     DeltaExcludePattern,
     DeltaIncludePattern,
     DeltaTitlePattern,
 )
+from .models.delta_url import DeltaUrl
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -76,7 +76,7 @@ class DeltaURLSerializer(serializers.ModelSerializer):
         return titlepattern.match_pattern_type if titlepattern else None
 
     class Meta:
-        model = DeltaURL
+        model = DeltaUrl
         fields = (
             "id",
             "excluded",
@@ -96,7 +96,7 @@ class DeltaURLSerializer(serializers.ModelSerializer):
 
 class DeltaURLBulkCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DeltaURL
+        model = DeltaUrl
         fields = (
             "url",
             "scraped_title",
@@ -110,7 +110,7 @@ class DeltaURLAPISerializer(serializers.ModelSerializer):
     tree_root = serializers.SerializerMethodField()
 
     class Meta:
-        model = DeltaURL
+        model = DeltaUrl
         fields = (
             "url",
             "title",
