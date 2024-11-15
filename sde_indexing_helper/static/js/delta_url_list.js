@@ -322,6 +322,221 @@ function initializeDataTable() {
     }, 1000)
   );
 
+  var curated_urls_table = $("#curated_urls_table").DataTable({
+    pageLength: 100,
+    colReorder: true,
+    stateSave: true,
+    layout: {
+      bottomEnd: "inputPaging",
+      topEnd: null,
+      topStart: {
+        info: true,
+        pageLength: {
+          menu: [
+            [25, 50, 100, 500],
+            ["Show 25", "Show 50", "Show 100", "Show 500"],
+          ],
+        },
+        buttons: [
+          {
+            extend: "csv",
+            exportOptions: {
+              columns: [0, 11, 2, 12, 10],
+            },
+            customize: function (csv) {
+              var lines = csv.split("\n");
+
+              // Reorder the header columns
+              var headers = lines[0].split(",");
+              headers[4] = "New Title";
+              var reorderedHeaders = [
+                headers[0],
+                headers[3],
+                headers[1],
+                headers[4],
+                headers[5],
+                headers[2],
+              ];
+              lines[0] = reorderedHeaders.join(",");
+
+              const appliedFilt = [
+                [`URL:`, `${$("#curatedUrlFilter").val()}`.trim()],
+                [`Exclude:`, `${$(".dropdown-1").val()}`.trim()],
+                [
+                  `Scraped Title:`,
+                  `${$("#curatedScrapedTitleFilter").val()}`.trim(),
+                ],
+                [`New Title:`, `${$("#curatedNewTitleFilter").val()}`.trim()],
+                [`Document Type:`, `${dict[$(".dropdown-4").val()]}`.trim()],
+                [`Division By URL:`, `${dict[$(".dropdown-5").val()]}`.trim()],
+              ];
+
+              const filtersAreEmpty = appliedFilt.every((filter) => {
+                return filter[1] === "" || filter[1] === "undefined";
+              });
+
+              // Remove the second row with the filters
+              if (lines.length > 2) {
+                lines.splice(1, 1);
+              }
+              let alteredLines = [];
+              lines.forEach((line) => {
+                let newLine = "";
+                newLine = line.replace("open_in_new", "");
+                alteredLines.push(newLine);
+              });
+
+              if (filtersAreEmpty) return alteredLines.join("\n");
+              else {
+                // Add filter information to the first row
+                const secondRowFilters = [
+                  "Export of SDE Curated URLs",
+                  `"(Applied Filters: ${appliedFilt
+                    .reduce((acc, curr) => {
+                      if (
+                        curr[1] !== " undefined" &&
+                        curr[1] !== " " &&
+                        curr[1] !== "" &&
+                        curr[1] !== "undefined"
+                      ) {
+                        acc = `${acc}, ${curr[0]} ${curr[1]}`;
+                      }
+                      return acc;
+                    }, "")
+                    .slice(2)})"`,
+                ];
+
+                var appliedFiltersInfo = secondRowFilters.join("\n");
+                return appliedFiltersInfo + "\n" + alteredLines.join("\n");
+              }
+            },
+          },
+          "spacer",
+          {
+            text: "Customize Columns",
+            className: "customizeColumns",
+            action: function () {
+              modalContents("#curated_urls_table");
+            },
+          },
+        ],
+      },
+    },
+    serverSide: true,
+    orderCellsTop: true,
+    pagingType: "input",
+    rowId: "url",
+    stateLoadCallback: function (settings) {
+      var state = JSON.parse(
+        localStorage.getItem(
+          "DataTables_curated_urls_" + window.location.pathname
+        )
+      );
+      if (!state) {
+        settings.oInit.pageLength = 1;
+      }
+      return state;
+    },
+    ajax: {
+      url: `/api/curated-urls/?format=datatables&collection_id=${collection_id}`,
+      data: function (d) {
+        d.is_excluded = $("#filter-checkbox").is(":checked") ? false : null;
+      },
+    },
+    initComplete: function (data) {
+      const addDropdownSelect = [1, 4, 5];
+      const dict = {
+        1: "Images",
+        2: "Data",
+        3: "Documentation",
+        4: "Software and Tools",
+        5: "Missions and Instruments",
+      };
+      this.api()
+        .columns()
+        .every(function (index) {
+          let column = this;
+          if (addDropdownSelect.includes(index)) {
+            $("thead tr td select.dropdown-" + index).on("change", function () {
+              var val = $.fn.dataTable.util.escapeRegex($(this).val());
+              column.search(val ? "^" + val + "$" : "", true, false).draw();
+            });
+          }
+        });
+    },
+
+    columns: [
+      getCuratedURLColumn(),
+      getCuratedExcludedColumn(true_icon, false_icon),
+      getCuratedScrapedTitleColumn(),
+      getCuratedGeneratedTitleColumn(),
+      getCuratedDocumentTypeColumn(),
+      getCuratedDivisionColumn(),
+      { data: "id", visible: false, searchable: false },
+      { data: "generated_title_id", visible: false, searchable: false },
+      { data: "match_pattern_type", visible: false, searchable: false },
+      { data: "curated_urls_count", visible: false, searchable: false },
+      { data: "excluded", visible: false, searchable: false },
+      {
+        data: null,
+        render: function (data, type, row) {
+          if (!row.document_type) return "Select";
+          return dict[row.document_type];
+        },
+        visible: false,
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          const excludedDict = {
+            true: "Yes",
+            false: "No",
+          };
+          return excludedDict[row.excluded];
+        },
+        visible: false,
+      },
+      {
+        data: null,
+        render: function (data, type, row) {
+          return row.generated_title;
+        },
+        visible: false,
+      },
+      // ...(is_multi_division === 'true' ? [getDivisionColumn()] : []),
+      // getDivisionColumn(),
+    ],
+    createdRow: function (row, data, dataIndex) {
+      if (data["excluded"]) {
+        $(row).attr(
+          "style",
+          "background-color: rgba(255, 61, 87, 0.36) !important"
+        );
+      }
+    },
+  });
+
+  $("#curatedUrlFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      delta_urls_table.columns(0).search(this.value).draw();
+    }, 1000)
+  );
+
+  $("#curatedScrapedTitleFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      delta_urls_table.columns(2).search(this.value).draw();
+    }, 1000)
+  );
+
+  $("#curatedNewTitleFilter").on(
+    "beforeinput",
+    DataTable.util.debounce(function (val) {
+      delta_urls_table.columns(3).search(this.value).draw();
+    }, 1000)
+  );
+
   var exclude_patterns_table = $("#exclude_patterns_table").DataTable({
     // scrollY: true,
     dom: "lBrtip",
@@ -849,6 +1064,30 @@ function getDivisionColumn() {
   };
 }
 
+function getCuratedDivisionColumn() {
+  return {
+    data: "division",
+    width: "10%",
+    visible: (is_multi_division === "true"), searchable: is_multi_division,
+    render: function (data, type, row) {
+      let button_text = data ? divisionDict[data] : "Select";
+      let button_color = data ? "btn-success" : "btn-secondary";
+      return `
+        <div class="dropdown document_type_dropdown" data-match-pattern=${remove_protocol(row["url"])}>
+          <button class="btn ${button_color} btn-sm dropdown-toggle selectStyling" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            ${button_text}
+          </button>
+          <div class="dropdown-menu">
+            <a class="dropdown-item division_select" href="#" value="0">None</a>
+            ${Object.entries(divisionDict).map(([value, name]) => {
+        return `<a class="dropdown-item division_select" href="#" value="${value}">${name}</a>`;
+      }).join('')}
+          </div>
+        </div>`;
+    },
+  };
+}
+
 
 function handleDivisionSelect() {
   $("body").on("click", ".division_select", function () {
@@ -956,7 +1195,31 @@ function getURLColumn() {
   };
 }
 
+function getCuratedURLColumn() {
+  return {
+    data: "url",
+    width: "30%",
+    render: function (data, type, row) {
+      return `<div class="url-cell"><span class="delta_url nameStyling">${remove_protocol(
+        data
+      )}</span>
+      <a target="_blank" href="${data}" data-url="/api/curated-urls/${row["id"]
+        }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
+    },
+  };
+}
+
 function getScrapedTitleColumn() {
+  return {
+    data: "scraped_title",
+    width: "30%",
+    render: function (data, type, row) {
+      return `<span class="whiteText">${data}</span>`;
+    },
+  };
+}
+
+function getCuratedScrapedTitleColumn() {
   return {
     data: "scraped_title",
     width: "30%",
@@ -979,6 +1242,19 @@ function getGeneratedTitleColumn() {
   };
 }
 
+function getCuratedGeneratedTitleColumn() {
+  return {
+    data: "generated_title",
+    width: "20%",
+    render: function (data, type, row) {
+      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${row["generated_title_id"]
+        } data-match-pattern-type=${row["match_pattern_type"]
+        } data-curated-urls-count=${row["curated_urls_count"]
+        } data-url=${remove_protocol(row["url"])} />`;
+    },
+  };
+}
+
 function getExcludedColumn(true_icon, false_icon) {
   return {
     data: "excluded",
@@ -996,7 +1272,58 @@ function getExcludedColumn(true_icon, false_icon) {
   };
 }
 
+function getCuratedExcludedColumn(true_icon, false_icon) {
+  return {
+    data: "excluded",
+    width: "10%",
+    class: "col-1 text-center",
+    render: function (data, type, row) {
+      return data === true
+        ? `<a class="exclude_individual_url" value=${remove_protocol(
+          row["url"]
+        )}>${true_icon}</a>`
+        : `<a class="exclude_individual_url" value=${remove_protocol(
+          row["url"]
+        )}>${false_icon}</a>`;
+    },
+  };
+}
+
 function getDocumentTypeColumn() {
+  return {
+    data: "document_type",
+    width: "10%",
+    render: function (data, type, row) {
+      var dict = {
+        1: "Images",
+        2: "Data",
+        3: "Documentation",
+        4: "Software and Tools",
+        5: "Missions and Instruments",
+      };
+      button_text = data ? dict[data] : "Select";
+      button_color = data ? "btn-success" : "btn-secondary";
+      return `
+            <div class="dropdown document_type_dropdown"  data-match-pattern=${remove_protocol(
+        row["url"]
+      )}>
+              <button class="btn ${button_color} btn-sm dropdown-toggle selectStyling" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                ${button_text}
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item document_type_select" href="#" value="0">None</a>
+                <a class="dropdown-item document_type_select" href="#" value="1">Images</a>
+                <a class="dropdown-item document_type_select" href="#" value="2">Data</a>
+                <a class="dropdown-item document_type_select" href="#" value="3">Documentation</a>
+                <a class="dropdown-item document_type_select" href="#" value="4">Software and Tools</a>
+                <a class="dropdown-item document_type_select" href="#" value="5">Missions and Instruments</a>
+              </div>
+            </div>`;
+    },
+  };
+}
+
+function getCuratedDocumentTypeColumn() {
   return {
     data: "document_type",
     width: "10%",
