@@ -1,3 +1,5 @@
+import time
+
 from django.apps import apps
 from django.core.management.base import BaseCommand
 from django.db.models import Count
@@ -39,10 +41,15 @@ STATUSES_TO_MIGRATE = [
 
 class Command(BaseCommand):
     help = """Migrate CandidateURLs to DeltaUrl, apply the matching patterns,
-            and then promote to CuratedUrl based on collection workflow status"""
+              and then promote to CuratedUrl based on collection workflow status"""
 
     def handle(self, *args, **kwargs):
-        # Clear all Delta instances
+        # Log the start time for the entire process
+        overall_start_time = time.time()
+        self.stdout.write("Starting the migration process...")
+
+        # Step 1: Clear all Delta instances
+        start_time = time.time()
         CuratedUrl.objects.all().delete()
         DeltaUrl.objects.all().delete()
         DeltaExcludePattern.objects.all().delete()
@@ -50,38 +57,72 @@ class Command(BaseCommand):
         DeltaTitlePattern.objects.all().delete()
         DeltaDocumentTypePattern.objects.all().delete()
         DeltaDivisionPattern.objects.all().delete()
+        self.stdout.write(f"Cleared all Delta instances in {time.time() - start_time:.2f} seconds.")
 
-        # Get collections with Candidate URLs
+        # Step 2: Get collections with Candidate URLs
+        start_time = time.time()
         all_collections_with_urls = Collection.objects.annotate(url_count=Count("candidate_urls")).filter(
             url_count__gt=0
         )
+        self.stdout.write(f"Collected collections with URLs in {time.time() - start_time:.2f} seconds.")
 
-        # Migrate all CandidateURLs to DeltaUrl using bulk creation
+        # Step 3: Migrate all CandidateURLs to DeltaUrl
+        start_time = time.time()
+        # Set to track URLs globally across all collections
+        global_unique_urls = set()
+
         for collection in all_collections_with_urls:
-            delta_urls = [
-                DeltaUrl(
-                    collection=candidate_url.collection,
-                    url=candidate_url.url,
-                    scraped_title=candidate_url.scraped_title,
-                    generated_title=candidate_url.generated_title,
-                    visited=candidate_url.visited,
-                    document_type=candidate_url.document_type,
-                    division=candidate_url.division,
-                    delete=False,
-                )
-                for candidate_url in CandidateURL.objects.filter(collection=collection)
-            ]
+            delta_urls = []
+
+            # Filter CandidateURL objects, ensuring each URL is globally unique
+            for candidate_url in CandidateURL.objects.filter(collection=collection):
+                if candidate_url.url not in global_unique_urls:
+                    global_unique_urls.add(candidate_url.url)
+                    delta_urls.append(
+                        DeltaUrl(
+                            collection=candidate_url.collection,
+                            url=candidate_url.url,
+                            scraped_title=candidate_url.scraped_title,
+                            generated_title=candidate_url.generated_title,
+                            visited=candidate_url.visited,
+                            document_type=candidate_url.document_type,
+                            division=candidate_url.division,
+                            delete=False,
+                        )
+                    )
+
+            # Bulk create the unique DeltaUrl instances for this collection
             DeltaUrl.objects.bulk_create(delta_urls)
 
-        # Migrate Patterns
-        self.migrate_patterns(ExcludePattern)
-        self.migrate_patterns(IncludePattern)
-        self.migrate_patterns(TitlePattern)
-        self.migrate_patterns(DocumentTypePattern)
-        self.migrate_patterns(DivisionPattern)
-        self.stdout.write(self.style.SUCCESS("Patterns migration complete."))
+        self.stdout.write(f"Migrated CandidateURLs to DeltaUrl in {time.time() - start_time:.2f} seconds.")
 
-        # Promote DeltaUrls to CuratedUrl for collections with relevant statuses
+        # Step 4: Migrate Patterns
+        start_time = time.time()
+
+        pattern_start_time = time.time()
+        self.migrate_patterns(ExcludePattern)
+        self.stdout.write(f"ExcludePattern migration completed in {time.time() - pattern_start_time:.2f} seconds.")
+
+        pattern_start_time = time.time()
+        self.migrate_patterns(IncludePattern)
+        self.stdout.write(f"IncludePattern migration completed in {time.time() - pattern_start_time:.2f} seconds.")
+
+        pattern_start_time = time.time()
+        self.migrate_patterns(TitlePattern)
+        self.stdout.write(f"TitlePattern migration completed in {time.time() - pattern_start_time:.2f} seconds.")
+
+        pattern_start_time = time.time()
+        self.migrate_patterns(DocumentTypePattern)
+        self.stdout.write(f"DocumentTypePattern migration completed in {time.time() - pattern_start_time:.2f} seconds.")
+
+        pattern_start_time = time.time()
+        self.migrate_patterns(DivisionPattern)
+        self.stdout.write(f"DivisionPattern migration completed in {time.time() - pattern_start_time:.2f} seconds.")
+
+        self.stdout.write(f"Total patterns migration completed in {time.time() - start_time:.2f} seconds.")
+
+        # Step 5: Promote DeltaUrls to CuratedUrl
+        start_time = time.time()
         all_curated_collections_with_urls = all_collections_with_urls.filter(workflow_status__in=STATUSES_TO_MIGRATE)
         self.stdout.write(
             f"""Migrating URLs for {all_curated_collections_with_urls.count()} collections
@@ -89,6 +130,10 @@ class Command(BaseCommand):
         )
         for collection in all_curated_collections_with_urls:
             collection.promote_to_curated()
+        self.stdout.write(f"Promotion to CuratedUrl completed in {time.time() - start_time:.2f} seconds.")
+
+        # Log the total time for the process
+        self.stdout.write(f"Total migration process completed in {time.time() - overall_start_time:.2f} seconds.")
 
     def migrate_patterns(self, non_delta_model):
         """Migrate patterns from a non-delta model to the corresponding delta model."""
