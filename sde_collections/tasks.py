@@ -252,7 +252,7 @@ def fetch_and_replace_full_text(collection_id, server_name):
 
     # Step 1: Delete all existing DumpUrl entries for the collection
     deleted_count, _ = DumpUrl.objects.filter(collection=collection).delete()
-    print(f"Deleted {deleted_count} existing DumpUrl entries for collection '{collection.config_name}'.")
+    print(f"Deleted {deleted_count} existing DumpUrl entries for collection '{collection.name}'.")
 
     # Step 2: Create new DumpUrl entries from the fetched documents
     processed_count = 0
