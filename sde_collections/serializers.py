@@ -64,15 +64,15 @@ class DeltaURLSerializer(serializers.ModelSerializer):
     delta_urls_count = serializers.SerializerMethodField(read_only=True)
 
     def get_delta_urls_count(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
+        titlepattern = obj.deltatitlepattern_delta_urls.last()
         return titlepattern.delta_urls.count() if titlepattern else 0
 
     def get_generated_title_id(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
+        titlepattern = obj.deltatitlepattern_delta_urls.last()
         return titlepattern.id if titlepattern else None
 
     def get_match_pattern_type(self, obj):
-        titlepattern = obj.titlepattern_urls.last()
+        titlepattern = obj.deltatitlepattern_delta_urls.last()
         return titlepattern.match_pattern_type if titlepattern else None
 
     class Meta:
