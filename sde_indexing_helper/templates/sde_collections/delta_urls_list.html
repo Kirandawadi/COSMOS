@@ -43,6 +43,9 @@ aria-labelledby="workflow-status-button-{{ collection.id }}">
             <a class="tab-nav active tabStyle" data-toggle="tab" href="#Delta-URLs">Delta URLs</a>
         </li>
         <li class="nav-item">
+            <a class="tab-nav tabStyle" data-toggle="tab" href="#Curated-URLs">Curated URLs</a>
+        </li>
+        <li class="nav-item">
             <a class="tab-nav tabStyle" id="excludePatternsTab" data-toggle="tab" href="#Exclude-Patterns">Exclude Patterns</a>
         </li>
         <li class="nav-item">
@@ -93,6 +96,64 @@ aria-labelledby="workflow-status-button-{{ collection.id }}">
                         </select></td>
                         <td ><input type="text" class="table_filter_row_input textBoxStyling" id="deltaScrapedTitleFilter" placeholder="Scraped Title" /></td>
                         <td ><input type="text" class="table_filter_row_input textBoxStyling" id="deltaNewTitleFilter" placeholder="New Title" /></td>
+                        <td><select class="dropdown-4 select-dropdown selectStyling"><option value="">SELECT</option>
+                        <option value="0">None</option>
+                        <option value="1">Images</option>
+                        <option value="2">Data</option>
+                        <option value="3">Documentation</option>
+                        <option value="4">Software and Tools</option>
+                        <option value="5">Missions and Instruments</option>
+                        </select></td>
+                        <td><select class="dropdown-5 select-dropdown selectStyling"><option value="">SELECT</option>
+                        <option value="0">None</option>
+                        <option value="1">Astrophysics</option>
+                        <option value="2">Biological and Physical Sciences</option>
+                        <option value="3">Earth Science</option>
+                        <option value="4">Heliophysics</option>
+                        <option value="5">Planetary Science</option>
+                        </select></td>
+                        <td ></td>
+                        <td ></td>
+                        <td ></td>
+                        <td ></td>
+                        <td ></td>
+                        <td ></td>
+                        <td ></td>
+                        <td ></td>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+        <div class="tab-pane fade" id="Curated-URLs">
+            <table class="table" id="curated_urls_table" style="width:100%" >
+                <thead class="tableHeader">
+                    <tr>
+                        <th scope="col" class="text-center col-1"><div class="header-title">URL</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">Exclude</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">Scraped Title</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">New Title</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">Document Type</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">Division</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">ID</div></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <!-- <th scope="col" class="text-center col-1"><div class="header-title">Document Type</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">Exclude</div></th>
+                        <th scope="col" class="text-center col-1"><div class="header-title">generated_title</div></th> -->
+                        <!-- {% if is_multi_division %} -->
+                        <!-- {% endif %} -->
+
+                    </tr>
+                    <tr>
+                        <td ><input type="text" class="table_filter_row_input textBoxStyling" id="curatedUrlFilter" placeholder="URL" /></td>
+                        <td ><select class="dropdown-1 select-dropdown selectStyling"><option value="">SELECT</option>
+                            <option value="false">FALSE</option>
+                            <option value="true">TRUE</option>
+                        </select></td>
+                        <td ><input type="text" class="table_filter_row_input textBoxStyling" id="curatedScrapedTitleFilter" placeholder="Scraped Title" /></td>
+                        <td ><input type="text" class="table_filter_row_input textBoxStyling" id="curatedNewTitleFilter" placeholder="New Title" /></td>
                         <td><select class="dropdown-4 select-dropdown selectStyling"><option value="">SELECT</option>
                         <option value="0">None</option>
                         <option value="1">Images</option>
