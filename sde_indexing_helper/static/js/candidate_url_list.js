@@ -9,11 +9,6 @@ var newExcludePatternsCount = 0;
 var newTitlePatternsCount = 0;
 var newDocumentTypePatternsCount = 0;
 var newDivisionPatternsCount = 0;
-var newDeltaIncludePatternsCount = 0;
-var newDeltaExcludePatternsCount = 0;
-var newDeltaTitlePatternsCount = 0;
-var newDeltaDocumentTypePatternsCount = 0;
-var newDeltaDivisionPatternsCount = 0;
 var currentTab = ""; //blank for the first tab
 var matchPatternTypeMap = {
   "Individual URL Pattern": 1,
@@ -91,7 +86,7 @@ function modalContents(tableName) {
       .attr("for", "checkbox_" + columnName.replace(/\s+/g, "_"))
       .text(columnName);
     var $caption = $("<p class='headerDescription'>")
-      .text(candidateTableHeaderDefinitons[columnName])
+      .text(deltaTableHeaderDefinitons[columnName])
       .attr({
         id: "caption",
       });
@@ -111,436 +106,6 @@ function modalContents(tableName) {
 function initializeDataTable() {
   var true_icon = '<i class="material-icons" style="color: green">check</i>';
   var false_icon = '<i class="material-icons" style="color: red">close</i>';
-
-  var candidate_urls_table = $("#candidate_urls_table").DataTable({
-    pageLength: 100,
-    colReorder: true,
-    stateSave: true,
-    layout: {
-      bottomEnd: "inputPaging",
-      topEnd: null,
-      topStart: {
-        info: true,
-        pageLength: {
-          menu: [
-            [25, 50, 100, 500],
-            ["Show 25", "Show 50", "Show 100", "Show 500"],
-          ],
-        },
-        buttons: [
-          {
-            extend: "csv",
-            exportOptions: {
-              columns: [0, 11, 2, 12, 10],
-            },
-            customize: function (csv) {
-              var lines = csv.split("\n");
-
-              // Reorder the header columns
-              var headers = lines[0].split(",");
-              headers[4] = "New Title";
-              var reorderedHeaders = [
-                headers[0],
-                headers[3],
-                headers[1],
-                headers[4],
-                headers[5],
-                headers[2],
-              ];
-              lines[0] = reorderedHeaders.join(",");
-
-              const appliedFilt = [
-                [`URL:`, `${$("#candidateUrlFilter").val()}`.trim()],
-                [`Exclude:`, `${$(".dropdown-1").val()}`.trim()],
-                [
-                  `Scraped Title:`,
-                  `${$("#candidateScrapedTitleFilter").val()}`.trim(),
-                ],
-                [`New Title:`, `${$("#candidateNewTitleFilter").val()}`.trim()],
-                [`Document Type:`, `${dict[$(".dropdown-4").val()]}`.trim()],
-                [`Division By URL:`, `${dict[$(".dropdown-5").val()]}`.trim()],
-              ];
-
-              const filtersAreEmpty = appliedFilt.every((filter) => {
-                return filter[1] === "" || filter[1] === "undefined";
-              });
-
-              // Remove the second row with the filters
-              if (lines.length > 2) {
-                lines.splice(1, 1);
-              }
-              let alteredLines = [];
-              lines.forEach((line) => {
-                let newLine = "";
-                newLine = line.replace("open_in_new", "");
-                alteredLines.push(newLine);
-              });
-
-              if (filtersAreEmpty) return alteredLines.join("\n");
-              else {
-                // Add filter information to the first row
-                const secondRowFilters = [
-                  "Export of SDE Candidate URLs",
-                  `"(Applied Filters: ${appliedFilt
-                    .reduce((acc, curr) => {
-                      if (
-                        curr[1] !== " undefined" &&
-                        curr[1] !== " " &&
-                        curr[1] !== "" &&
-                        curr[1] !== "undefined"
-                      ) {
-                        acc = `${acc}, ${curr[0]} ${curr[1]}`;
-                      }
-                      return acc;
-                    }, "")
-                    .slice(2)})"`,
-                ];
-
-                var appliedFiltersInfo = secondRowFilters.join("\n");
-                return appliedFiltersInfo + "\n" + alteredLines.join("\n");
-              }
-            },
-          },
-          "spacer",
-          {
-            text: "Customize Columns",
-            className: "customizeColumns",
-            action: function () {
-              modalContents("#candidate_urls_table");
-            },
-          },
-        ],
-      },
-    },
-    serverSide: true,
-    orderCellsTop: true,
-    pagingType: "input",
-    rowId: "url",
-    stateLoadCallback: function (settings) {
-      var state = JSON.parse(
-        localStorage.getItem(
-          "DataTables_candidate_urls_" + window.location.pathname
-        )
-      );
-      if (!state) {
-        settings.oInit.pageLength = 1;
-      }
-      return state;
-    },
-    ajax: {
-      url: `/api/candidate-urls/?format=datatables&collection_id=${collection_id}`,
-      data: function (d) {
-        d.is_excluded = $("#filter-checkbox").is(":checked") ? false : null;
-      },
-    },
-    initComplete: function (data) {
-      const addDropdownSelect = [1, 4, 5];
-      const dict = {
-        1: "Images",
-        2: "Data",
-        3: "Documentation",
-        4: "Software and Tools",
-        5: "Missions and Instruments",
-      };
-      this.api()
-        .columns()
-        .every(function (index) {
-          let column = this;
-          if (addDropdownSelect.includes(index)) {
-            $("thead tr td select.dropdown-" + index).on("change", function () {
-              var val = $.fn.dataTable.util.escapeRegex($(this).val());
-              column.search(val ? "^" + val + "$" : "", true, false).draw();
-            });
-          }
-        });
-    },
-
-    columns: [
-      getURLColumn(),
-      getExcludedColumn(true_icon, false_icon),
-      getScrapedTitleColumn(),
-      getGeneratedTitleColumn(),
-      getDocumentTypeColumn(),
-      getDivisionColumn(),
-      { data: "id", visible: false, searchable: false },
-      { data: "generated_title_id", visible: false, searchable: false },
-      { data: "match_pattern_type", visible: false, searchable: false },
-      { data: "candidate_urls_count", visible: false, searchable: false },
-      { data: "excluded", visible: false, searchable: false },
-      {
-        data: null,
-        render: function (data, type, row) {
-          if (!row.document_type) return "Select";
-          return dict[row.document_type];
-        },
-        visible: false,
-      },
-      {
-        data: null,
-        render: function (data, type, row) {
-          const excludedDict = {
-            true: "Yes",
-            false: "No",
-          };
-          return excludedDict[row.excluded];
-        },
-        visible: false,
-      },
-      {
-        data: null,
-        render: function (data, type, row) {
-          return row.generated_title;
-        },
-        visible: false,
-      },
-      // ...(is_multi_division === 'true' ? [getDivisionColumn()] : []),
-      // getDivisionColumn(),
-    ],
-    createdRow: function (row, data, dataIndex) {
-      if (data["excluded"]) {
-        $(row).attr(
-          "style",
-          "background-color: rgba(255, 61, 87, 0.36) !important"
-        );
-      }
-    },
-  });
-
-  $("#candidateUrlFilter").on(
-    "beforeinput",
-    DataTable.util.debounce(function (val) {
-      candidate_urls_table.columns(0).search(this.value).draw();
-    }, 1000)
-  );
-
-  $("#candidateScrapedTitleFilter").on(
-    "beforeinput",
-    DataTable.util.debounce(function (val) {
-      candidate_urls_table.columns(2).search(this.value).draw();
-    }, 1000)
-  );
-
-  $("#candidateNewTitleFilter").on(
-    "beforeinput",
-    DataTable.util.debounce(function (val) {
-      candidate_urls_table.columns(3).search(this.value).draw();
-    }, 1000)
-  );
-
-  var curated_urls_table = $("#curated_urls_table").DataTable({
-    pageLength: 100,
-    colReorder: true,
-    stateSave: true,
-    layout: {
-      bottomEnd: "inputPaging",
-      topEnd: null,
-      topStart: {
-        info: true,
-        pageLength: {
-          menu: [
-            [25, 50, 100, 500],
-            ["Show 25", "Show 50", "Show 100", "Show 500"],
-          ],
-        },
-        buttons: [
-          {
-            extend: "csv",
-            exportOptions: {
-              columns: [0, 11, 2, 12, 10],
-            },
-            customize: function (csv) {
-              var lines = csv.split("\n");
-
-              // Reorder the header columns
-              var headers = lines[0].split(",");
-              headers[4] = "New Title";
-              var reorderedHeaders = [
-                headers[0],
-                headers[3],
-                headers[1],
-                headers[4],
-                headers[5],
-                headers[2],
-              ];
-              lines[0] = reorderedHeaders.join(",");
-
-              const appliedFilt = [
-                [`URL:`, `${$("#curatedUrlFilter").val()}`.trim()],
-                [`Exclude:`, `${$(".dropdown-1").val()}`.trim()],
-                [
-                  `Scraped Title:`,
-                  `${$("#curatedScrapedTitleFilter").val()}`.trim(),
-                ],
-                [`New Title:`, `${$("#curatedNewTitleFilter").val()}`.trim()],
-                [`Document Type:`, `${dict[$(".dropdown-4").val()]}`.trim()],
-                [`Division By URL:`, `${dict[$(".dropdown-5").val()]}`.trim()],
-              ];
-
-              const filtersAreEmpty = appliedFilt.every((filter) => {
-                return filter[1] === "" || filter[1] === "undefined";
-              });
-
-              // Remove the second row with the filters
-              if (lines.length > 2) {
-                lines.splice(1, 1);
-              }
-              let alteredLines = [];
-              lines.forEach((line) => {
-                let newLine = "";
-                newLine = line.replace("open_in_new", "");
-                alteredLines.push(newLine);
-              });
-
-              if (filtersAreEmpty) return alteredLines.join("\n");
-              else {
-                // Add filter information to the first row
-                const secondRowFilters = [
-                  "Export of SDE Curated URLs",
-                  `"(Applied Filters: ${appliedFilt
-                    .reduce((acc, curr) => {
-                      if (
-                        curr[1] !== " undefined" &&
-                        curr[1] !== " " &&
-                        curr[1] !== "" &&
-                        curr[1] !== "undefined"
-                      ) {
-                        acc = `${acc}, ${curr[0]} ${curr[1]}`;
-                      }
-                      return acc;
-                    }, "")
-                    .slice(2)})"`,
-                ];
-
-                var appliedFiltersInfo = secondRowFilters.join("\n");
-                return appliedFiltersInfo + "\n" + alteredLines.join("\n");
-              }
-            },
-          },
-          "spacer",
-          {
-            text: "Customize Columns",
-            className: "customizeColumns",
-            action: function () {
-              modalContents("#curated_urls_table");
-            },
-          },
-        ],
-      },
-    },
-    serverSide: true,
-    orderCellsTop: true,
-    pagingType: "input",
-    rowId: "url",
-    stateLoadCallback: function (settings) {
-      var state = JSON.parse(
-        localStorage.getItem(
-          "DataTables_curated_urls_" + window.location.pathname
-        )
-      );
-      if (!state) {
-        settings.oInit.pageLength = 1;
-      }
-      return state;
-    },
-    ajax: {
-      url: `/api/curated-urls/?format=datatables&collection_id=${collection_id}`,
-      data: function (d) {
-        d.is_excluded = $("#filter-checkbox").is(":checked") ? false : null;
-      },
-    },
-    initComplete: function (data) {
-      const addDropdownSelect = [1, 4, 5];
-      const dict = {
-        1: "Images",
-        2: "Data",
-        3: "Documentation",
-        4: "Software and Tools",
-        5: "Missions and Instruments",
-      };
-      this.api()
-        .columns()
-        .every(function (index) {
-          let column = this;
-          if (addDropdownSelect.includes(index)) {
-            $("thead tr td select.dropdown-" + index).on("change", function () {
-              var val = $.fn.dataTable.util.escapeRegex($(this).val());
-              column.search(val ? "^" + val + "$" : "", true, false).draw();
-            });
-          }
-        });
-    },
-
-    columns: [
-      getCuratedURLColumn(),
-      getExcludedColumn(true_icon, false_icon),
-      getScrapedTitleColumn(),
-      getCuratedGeneratedTitleColumn(),
-      getDocumentTypeColumn(),
-      getDivisionColumn(),
-      { data: "id", visible: false, searchable: false },
-      { data: "generated_title_id", visible: false, searchable: false },
-      { data: "match_pattern_type", visible: false, searchable: false },
-      { data: "curated_urls_count", visible: false, searchable: false },
-      { data: "excluded", visible: false, searchable: false },
-      {
-        data: null,
-        render: function (data, type, row) {
-          if (!row.document_type) return "Select";
-          return dict[row.document_type];
-        },
-        visible: false,
-      },
-      {
-        data: null,
-        render: function (data, type, row) {
-          const excludedDict = {
-            true: "Yes",
-            false: "No",
-          };
-          return excludedDict[row.excluded];
-        },
-        visible: false,
-      },
-      {
-        data: null,
-        render: function (data, type, row) {
-          return row.generated_title;
-        },
-        visible: false,
-      },
-      // ...(is_multi_division === 'true' ? [getDivisionColumn()] : []),
-      // getDivisionColumn(),
-    ],
-    createdRow: function (row, data, dataIndex) {
-      if (data["excluded"]) {
-        $(row).attr(
-          "style",
-          "background-color: rgba(255, 61, 87, 0.36) !important"
-        );
-      }
-    },
-  });
-
-  $("#curatedUrlFilter").on(
-    "beforeinput",
-    DataTable.util.debounce(function (val) {
-      curated_urls_table.columns(0).search(this.value).draw();
-    }, 1000)
-  );
-
-  $("#curatedScrapedTitleFilter").on(
-    "beforeinput",
-    DataTable.util.debounce(function (val) {
-      curated_urls_table.columns(2).search(this.value).draw();
-    }, 1000)
-  );
-
-  $("#curatedNewTitleFilter").on(
-    "beforeinput",
-    DataTable.util.debounce(function (val) {
-      curated_urls_table.columns(3).search(this.value).draw();
-    }, 1000)
-  );
 
   var delta_urls_table = $("#delta_urls_table").DataTable({
     pageLength: 100,
@@ -686,10 +251,10 @@ function initializeDataTable() {
     },
 
     columns: [
-      getDeltaURLColumn(),
+      getURLColumn(),
       getExcludedColumn(true_icon, false_icon),
       getScrapedTitleColumn(),
-      getDeltaGeneratedTitleColumn(),
+      getGeneratedTitleColumn(),
       getDocumentTypeColumn(),
       getDivisionColumn(),
       { data: "id", visible: false, searchable: false },
@@ -819,93 +384,6 @@ function initializeDataTable() {
         visible: false,
       },
       {
-        data: "candidate_urls_count",
-        class: "text-center whiteText",
-        sortable: true,
-      },
-      {
-        data: null,
-        sortable: false,
-        class: "text-center",
-        render: function (data, type, row) {
-          return `<button class="btn btn-danger btn-sm delete-exclude-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
-        },
-      },
-      { data: "id", visible: false, searchable: false },
-      { data: "match_pattern_type", visible: false },
-    ],
-  });
-
-  $("#candidateMatchPatternFilter").on("beforeinput", function () {
-    exclude_patterns_table.columns(0).search(this.value).draw();
-  });
-
-  $("#candidateReasonFilter").on("beforeinput", function () {
-    exclude_patterns_table.columns(2).search(this.value).draw();
-  });
-
-  var delta_exclude_patterns_table = $("#delta_exclude_patterns_table").DataTable({
-    // scrollY: true,
-    dom: "lBrtip",
-    buttons: [
-      {
-        text: "Add Pattern",
-        className: "addPattern",
-        action: function () {
-          $modal = $("#deltaExcludePatternModal").modal();
-        },
-      },
-      {
-        text: "Customize Columns",
-        className: "customizeColumns",
-        action: function () {
-          modalContents("#delta_exclude_patterns_table");
-        },
-      },
-    ],
-    lengthMenu: [
-      [25, 50, 100, 500],
-      ["Show 25", "Show 50", "Show 100", "Show 500"],
-    ],
-    orderCellsTop: true,
-    pageLength: 100,
-    ajax: `/api/delta-exclude-patterns/?format=datatables&collection_id=${collection_id}`,
-    initComplete: function (data) {
-      var table = $("#delta_exclude_patterns_table").DataTable();
-
-      this.api()
-        .columns()
-        .every(function (index) {
-          let column = this;
-          if (column.data().length === 0) {
-            $("#delta-exclude-patterns-dropdown-1").prop("disabled", true);
-          } else if (index === 1) {
-            $("#delta-exclude-patterns-dropdown-1").on("change", function () {
-              if ($(this).val() === "") table.columns(6).search("").draw();
-              else {
-                table
-                  .column(6)
-                  .search(matchPatternTypeMap[$(this).val()])
-                  .draw();
-              }
-            });
-          }
-        });
-    },
-    columns: [
-      { data: "delta_match_pattern", class: "whiteText" },
-      {
-        data: "delta_match_pattern_type_display",
-        class: "text-center whiteText",
-        sortable: true,
-      },
-      {
-        data: "reason",
-        class: "text-center whiteText",
-        sortable: false,
-        visible: false,
-      },
-      {
         data: "delta_urls_count",
         class: "text-center whiteText",
         sortable: true,
@@ -924,11 +402,11 @@ function initializeDataTable() {
   });
 
   $("#deltaMatchPatternFilter").on("beforeinput", function () {
-    delta_exclude_patterns_table.columns(0).search(this.value).draw();
+    exclude_patterns_table.columns(0).search(this.value).draw();
   });
 
   $("#deltaReasonFilter").on("beforeinput", function () {
-    delta_exclude_patterns_table.columns(2).search(this.value).draw();
+    exclude_patterns_table.columns(2).search(this.value).draw();
   });
 
   var include_patterns_table = $("#include_patterns_table").DataTable({
@@ -986,7 +464,7 @@ function initializeDataTable() {
         sortable: false,
       },
       {
-        data: "candidate_urls_count",
+        data: "delta_urls_count",
         class: "text-center whiteText",
         sortable: true,
       },
@@ -1003,87 +481,9 @@ function initializeDataTable() {
     ],
   });
 
-  $("#candidateIncludeMatchPatternFilter").on("beforeinput", function () {
+  $("#deltaIncludeMatchPatternFilter").on("beforeinput", function () {
     include_patterns_table.columns(0).search(this.value).draw();
   });
-
-  var delta_include_patterns_table = $("#delta_include_patterns_table").DataTable({
-    // scrollY: true,
-    lengthMenu: [
-      [25, 50, 100, 500],
-      ["Show 25", "Show 50", "Show 100", "Show 500"],
-    ],
-    dom: "lBrtip",
-    buttons: [
-      {
-        text: "Add Pattern",
-        className: "addPattern",
-        action: function () {
-          $modal = $("#deltaIncludePatternModal").modal();
-        },
-      },
-      {
-        text: "Customize Columns",
-        className: "customizeColumns",
-        action: function () {
-          modalContents("#delta_include_patterns_table");
-        },
-      },
-    ],
-    pageLength: 100,
-    orderCellsTop: true,
-    ajax: `/api/delta-include-patterns/?format=datatables&collection_id=${collection_id}`,
-    initComplete: function (data) {
-      var table = $("#delta_include_patterns_table").DataTable();
-      this.api()
-        .columns()
-        .every(function (index) {
-          let column = this;
-          if (column.data().length === 0) {
-            $("#delta-include-patterns-dropdown-1").prop("disabled", true);
-          } else {
-            if (index === 1) {
-              $("#delta-include-patterns-dropdown-1").on("change", function () {
-                if ($(this).val() === "") table.columns(5).search("").draw();
-                table
-                  .column(5)
-                  .search(matchPatternTypeMap[$(this).val()])
-                  .draw();
-              });
-            }
-          }
-        });
-    },
-    columns: [
-      { data: "delta_match_pattern", class: "whiteText" },
-      {
-        data: "delta_match_pattern_type_display",
-        class: "text-center whiteText",
-        sortable: false,
-      },
-      {
-        data: "delta_urls_count",
-        class: "text-center whiteText",
-        sortable: true,
-      },
-      {
-        data: null,
-        sortable: false,
-        class: "text-center",
-        render: function (data, type, row) {
-          return `<button class="btn btn-danger btn-sm delete-include-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
-        },
-      },
-      { data: "id", visible: false, searchable: false },
-      { data: "delta_match_pattern_type", visible: false },
-    ],
-  });
-
-  $("#deltaIncludeMatchPatternFilter").on("beforeinput", function () {
-    delta_include_patterns_table.columns(0).search(this.value).draw();
-  });
-
-
 
   var title_patterns_table = $("#title_patterns_table").DataTable({
     // scrollY: true,
@@ -1144,7 +544,7 @@ function initializeDataTable() {
       },
       { data: "title_pattern", class: "whiteText" },
       {
-        data: "candidate_urls_count",
+        data: "delta_urls_count",
         class: "text-center whiteText",
         sortable: true,
       },
@@ -1161,96 +561,12 @@ function initializeDataTable() {
     ],
   });
 
-  $("#candidateTitleMatchPatternFilter").on("beforeinput", function (val) {
+  $("#deltaTitleMatchPatternFilter").on("beforeinput", function (val) {
     title_patterns_table.columns(0).search(this.value).draw();
   });
 
-  $("#candidateTitlePatternTypeFilter").on("beforeinput", function (val) {
-    title_patterns_table.columns(2).search(this.value).draw();
-  });
-
-  var delta_title_patterns_table = $("#delta_title_patterns_table").DataTable({
-    // scrollY: true,
-    dom: "lBrtip",
-    serverSide: true,
-    paging: true,
-    buttons: [
-      {
-        text: "Add Pattern",
-        className: "addPattern",
-        action: function () {
-          $modal = $("#deltaTitlePatternModal").modal();
-        },
-      },
-      {
-        text: "Customize Columns",
-        className: "customizeColumns",
-        action: function () {
-          modalContents("#delta_title_patterns_table");
-        },
-      },
-    ],
-    lengthMenu: [
-      [25, 50, 100, 500, -1],
-      ["Show 25", "Show 50", "Show 100", "Show 500", "Show All"],
-    ],
-    pageLength: 50,
-    orderCellsTop: true,
-    ajax: `/api/delta-title-patterns/?format=datatables&collection_id=${collection_id}`,
-    initComplete: function (data) {
-      var table = $("#delta_title_patterns_table").DataTable();
-
-      this.api()
-        .columns()
-        .every(function (index) {
-          let column = this;
-          if (column.data().length === 0) {
-            $("#delta-title-patterns-dropdown-1").prop("disabled", true);
-          } else if (index === 1) {
-            $("#delta-title-patterns-dropdown-1").on("change", function () {
-              if ($(this).val() === "") table.columns(6).search("").draw();
-              else {
-                table
-                  .column(6)
-                  .search(matchPatternTypeMap[$(this).val()])
-                  .draw();
-              }
-            });
-          }
-        });
-    },
-    columns: [
-      { data: "delta_match_pattern", class: "whiteText" },
-      {
-        data: "delta_match_pattern_type_display",
-        class: "text-center whiteText",
-        sortable: false,
-      },
-      { data: "delta_title_pattern", class: "whiteText" },
-      {
-        data: "delta_urls_count",
-        class: "text-center whiteText",
-        sortable: true,
-      },
-      {
-        data: null,
-        sortable: false,
-        class: "text-center",
-        render: function (data, type, row) {
-          return `<button class="btn btn-danger btn-sm delete-title-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
-        },
-      },
-      { data: "id", visible: false, searchable: false },
-      { data: "delta_match_pattern_type", visible: false },
-    ],
-  });
-
-  $("#deltaTitleMatchPatternFilter").on("beforeinput", function (val) {
-    delta_title_patterns_table.columns(0).search(this.value).draw();
-  });
-
   $("#deltaTitlePatternTypeFilter").on("beforeinput", function (val) {
-    delta_title_patterns_table.columns(2).search(this.value).draw();
+    title_patterns_table.columns(2).search(this.value).draw();
   });
 
   var document_type_patterns_table = $(
@@ -1340,7 +656,7 @@ function initializeDataTable() {
       },
       { data: "document_type_display", class: "whiteText" },
       {
-        data: "candidate_urls_count",
+        data: "delta_urls_count",
         class: "text-center whiteText",
         sortable: true,
       },
@@ -1358,117 +674,8 @@ function initializeDataTable() {
     ],
   });
 
-  $("#candidateDocTypeMatchPatternFilter").on("beforeinput", function (val) {
-    document_type_patterns_table.columns(0).search(this.value).draw();
-  });
-
-  var delta_document_type_patterns_table = $(
-    "#delta_document_type_patterns_table"
-  ).DataTable({
-    // scrollY: true,
-    dom: "lBrtip",
-    buttons: [
-      {
-        text: "Add Pattern",
-        className: "addPattern",
-        action: function () {
-          $modal = $("#deltaDocumentTypePatternModal").modal();
-        },
-      },
-      {
-        text: "Customize Columns",
-        className: "customizeColumns",
-        action: function () {
-          modalContents("#delta_document_type_patterns_table");
-        },
-      },
-    ],
-    lengthMenu: [
-      [25, 50, 100, 500],
-      ["Show 25", "Show 50", "Show 100", "Show 500"],
-    ],
-    orderCellsTop: true,
-    pageLength: 100,
-    ajax: `/api/delta_document-type-patterns/?format=datatables&collection_id=${collection_id}`,
-    initComplete: function (data) {
-      this.api()
-        .columns()
-        .every(function (index) {
-          var table = $("#delta_document_type_patterns_table").DataTable();
-
-          let addDropdownSelect = {
-            1: {
-              columnToSearch: 6,
-              matchPattern: {
-                "Individual URL Pattern": 1,
-                "Multi-URL Pattern": 2,
-              },
-            },
-            2: {
-              columnToSearch: 7,
-              matchPattern: {
-                Images: 1,
-                Data: 2,
-                Documentation: 3,
-                "Software and Tools": 4,
-                "Missions and Instruments": 5,
-              },
-            },
-          };
-
-          let column = this;
-          if (column.data().length === 0) {
-            $(`#delta-document-type-patterns-dropdown-${index}`).prop(
-              "disabled",
-              true
-            );
-          } else if (index in addDropdownSelect) {
-            $("#delta-document-type-patterns-dropdown-" + index).on(
-              "change",
-              function () {
-                let col = addDropdownSelect[index].columnToSearch;
-                let searchInput =
-                  addDropdownSelect[index].matchPattern[$(this).val()];
-                if ($(this).val() === "" || $(this).val() === undefined)
-                  table.columns(col).search("").draw();
-                else {
-                  table.columns(col).search(searchInput).draw();
-                }
-              }
-            );
-          }
-        });
-    },
-
-    columns: [
-      { data: "delta_match_pattern", class: "whiteText" },
-      {
-        data: "delta_match_pattern_type_display",
-        class: "text-center whiteText",
-        sortable: false,
-      },
-      { data: "delta_document_type_display", class: "whiteText" },
-      {
-        data: "delta_urls_count",
-        class: "text-center whiteText",
-        sortable: true,
-      },
-      {
-        data: null,
-        sortable: false,
-        class: "text-center",
-        render: function (data, type, row) {
-          return `<button class="btn btn-danger btn-sm delete-document-type-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
-        },
-      },
-      { data: "id", visible: false, searchable: false },
-      { data: "delta_match_pattern_type", visible: false },
-      { data: "delta_document_type", visible: false },
-    ],
-  });
-
   $("#deltaDocTypeMatchPatternFilter").on("beforeinput", function (val) {
-    delta_document_type_patterns_table.columns(0).search(this.value).draw();
+    document_type_patterns_table.columns(0).search(this.value).draw();
   });
 }
 
@@ -1550,7 +757,7 @@ var division_patterns_table = $("#division_patterns_table").DataTable({
     },
     { data: "division_display", class: "whiteText" },
     {
-      data: "candidate_urls_count",
+      data: "delta_urls_count",
       class: "text-center whiteText",
       sortable: true,
     },
@@ -1568,109 +775,10 @@ var division_patterns_table = $("#division_patterns_table").DataTable({
   ],
 });
 
-$("#candidateDivisionMatchPatternFilter").on("beforeinput", function (val) {
+$("#deltaDivisionMatchPatternFilter").on("beforeinput", function (val) {
   division_patterns_table.columns(0).search(this.value).draw();
 });
 
-var delta_division_patterns_table = $("#delta_division_patterns_table").DataTable({
-  dom: "lBrtip",
-  buttons: [
-    {
-      text: "Add Pattern",
-      className: "addPattern",
-      action: function () {
-        $modal = $("#deltaDivisionPatternModal").modal();
-      },
-    },
-    {
-      text: "Customize Columns",
-      className: "customizeColumns",
-      action: function () {
-        modalContents("#delta_division_patterns_table");
-      },
-    },
-  ],
-  lengthMenu: [
-    [25, 50, 100, 500],
-    ["Show 25", "Show 50", "Show 100", "Show 500"],
-  ],
-  orderCellsTop: true,
-  pageLength: 100,
-  ajax: `/api/delta-division-patterns/?format=datatables&collection_id=${collection_id}`,
-  initComplete: function (data) {
-    this.api()
-      .columns()
-      .every(function (index) {
-        var table = $("#delta_division_patterns_table").DataTable();
-
-        let addDropdownSelect = {
-          1: {
-            columnToSearch: 6,
-            matchPattern: {
-              "Individual URL Pattern": 1,
-              "Multi-URL Pattern": 2,
-            },
-          },
-          2: {
-            columnToSearch: 7,
-            matchPattern: {
-              "Astrophysics": 1,
-              "Biological and Physical Sciences": 2,
-              "Earth Science": 3,
-              "Heliophysics": 4,
-              "Planetary Science": 5,
-            },
-          },
-        };
-
-        let column = this;
-        if (column.data().length === 0) {
-          $(`#delta-division-patterns-dropdown-${index}`).prop("disabled", true);
-        } else if (index in addDropdownSelect) {
-          $("#delta-division-patterns-dropdown-" + index).on("change", function () {
-            let col = addDropdownSelect[index].columnToSearch;
-            let searchInput =
-              addDropdownSelect[index].matchPattern[$(this).val()];
-            if ($(this).val() === "" || $(this).val() === undefined)
-              table.columns(col).search("").draw();
-            else {
-              table.columns(col).search(searchInput).draw();
-            }
-          });
-        }
-      });
-  },
-
-  columns: [
-    { data: "delta_match_pattern", class: "whiteText" },
-    {
-      data: "delta_match_pattern_type_display",
-      class: "text-center whiteText",
-      sortable: false,
-    },
-    { data: "delta_division_display", class: "whiteText" },
-    {
-      data: "delta_urls_count",
-      class: "text-center whiteText",
-      sortable: true,
-    },
-    {
-      data: null,
-      sortable: false,
-      class: "text-center",
-      render: function (data, type, row) {
-        return `<button class="btn btn-danger btn-sm delete-division-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
-      },
-    },
-    { data: "id", visible: false, searchable: false },
-    { data: "delta_match_pattern_type", visible: false },
-    { data: "delta_division", visible: false },
-  ],
-});
-
-$("#deltaDivisionMatchPatternFilter").on("beforeinput", function (val) {
-  delta_division_patterns_table.columns(0).search(this.value).draw();
-});
 
 function handleTabsClick() {
   $("#includePatternsTab").on("click", function () {
@@ -1692,26 +800,6 @@ function handleTabsClick() {
   $("#divisionPatternsTab").on("click", function () {
     newDivisionPatternsCount = 0;
     $("#divisionPatternsTab").html(`Division Patterns`);
-  });
-  $("#deltaIncludePatternsTab").on("click", function () {
-    newDeltaIncludePatternsCount = 0;
-    $("#deltaIncludePatternsTab").html(`Delta Include Patterns`);
-  });
-  $("#deltaExcludePatternsTab").on("click", function () {
-    newDeltaExcludePatternsCount = 0;
-    $("#deltaExcludePatternsTab").html(`Delta Exclude Patterns`);
-  });
-  $("#deltaTitlePatternsTab").on("click", function () {
-    newDeltaTitlePatternsCount = 0;
-    $("#deltaTitlePatternsTab").html(`Delta Title Patterns`);
-  });
-  $("#deltaDocumentTypePatternsTab").on("click", function () {
-    newDeltaDocumentTypePatternsCount = 0;
-    $("#deltaDocumentTypePatternsTab").html(`Delta Document Type Patterns`);
-  });
-  $("#deltaDivisionPatternsTab").on("click", function () {
-    newDeltaDivisionPatternsCount = 0;
-    $("#deltaDivisionPatternsTab").html(`Delta Division Patterns`);
   });
 }
 
@@ -1779,7 +867,7 @@ function postDivision(urlId, division) {
       csrfmiddlewaretoken: csrftoken,
     },
     success: function (data) {
-      $('#candidate_urls_table').DataTable().ajax.reload(null, false);
+      $('#delta_urls_table').DataTable().ajax.reload(null, false);
       toastr.success("Division assigned successfully!");
     },
     error: function (xhr, status, error) {
@@ -1829,7 +917,7 @@ function postDivisionPatterns(match_pattern, match_pattern_type, division) {
       csrfmiddlewaretoken: csrftoken,
     },
     success: function (data) {
-      $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+      $("#delta_urls_table").DataTable().ajax.reload(null, false);
       $("#division_patterns_table").DataTable().ajax.reload(null, false);
       if (currentTab === "") { // Only add a notification if we are on the first tab
         newDivisionPatternsCount = newDivisionPatternsCount + 1;
@@ -1859,34 +947,6 @@ function getURLColumn() {
     data: "url",
     width: "30%",
     render: function (data, type, row) {
-      return `<div class="url-cell"><span class="candidate_url nameStyling">${remove_protocol(
-        data
-      )}</span>
-      <a target="_blank" href="${data}" data-url="/api/candidate-urls/${row["id"]
-        }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
-    },
-  };
-}
-
-function getCuratedURLColumn() {
-  return {
-    data: "url",
-    width: "30%",
-    render: function (data, type, row) {
-      return `<div class="url-cell"><span class="curated_url nameStyling">${remove_protocol(
-        data
-      )}</span>
-      <a target="_blank" href="${data}" data-url="/api/curated-urls/${row["id"]
-        }/" class="url-link"> <i class="material-icons url-icon">open_in_new</i></a></div>`;
-    },
-  };
-}
-
-function getDeltaURLColumn() {
-  return {
-    data: "url",
-    width: "30%",
-    render: function (data, type, row) {
       return `<div class="url-cell"><span class="delta_url nameStyling">${remove_protocol(
         data
       )}</span>
@@ -1907,32 +967,6 @@ function getScrapedTitleColumn() {
 }
 
 function getGeneratedTitleColumn() {
-  return {
-    data: "generated_title",
-    width: "20%",
-    render: function (data, type, row) {
-      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${row["generated_title_id"]
-        } data-match-pattern-type=${row["match_pattern_type"]
-        } data-candidate-urls-count=${row["candidate_urls_count"]
-        } data-url=${remove_protocol(row["url"])} />`;
-    },
-  };
-}
-
-function getCuratedGeneratedTitleColumn() {
-  return {
-    data: "generated_title",
-    width: "20%",
-    render: function (data, type, row) {
-      return `<input type="text" class="form-control individual_title_input whiteText" value='${data}' data-generated-title-id=${row["generated_title_id"]
-        } data-match-pattern-type=${row["match_pattern_type"]
-        } data-curated-urls-count=${row["curated_urls_count"]
-        } data-url=${remove_protocol(row["url"])} />`;
-    },
-  };
-}
-
-function getDeltaGeneratedTitleColumn() {
   return {
     data: "generated_title",
     width: "20%",
@@ -2156,14 +1190,14 @@ function handleNewTitleChange() {
     var title_pattern = $(this).val();
     var generated_title_id = $(this).data("generated-title-id");
     var match_pattern_type = $(this).data("match-pattern-type");
-    var candidate_urls_count = $(this).data("candidate-urls-count");
+    var delta_urls_count = $(this).data("delta-urls-count");
     if (!title_pattern) {
       currentURLtoDelete = `/api/title-patterns/${generated_title_id}/`;
       deletePattern(
         `/api/title-patterns/${generated_title_id}/`,
         (data_type = "Title Pattern"),
         (url_type = match_pattern_type),
-        (candidate_urls_count = candidate_urls_count)
+        (delta_urls_count = delta_urls_count)
       );
     } else {
       postTitlePatterns(
@@ -2209,7 +1243,7 @@ function postDocumentTypePatterns(
       csrfmiddlewaretoken: csrftoken,
     },
     success: function (data) {
-      $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+      $("#delta_urls_table").DataTable().ajax.reload(null, false);
       $("#document_type_patterns_table").DataTable().ajax.reload(null, false);
       if (currentTab === "") { //Only add a notification if we are on the first tab
         newDocumentTypePatternsCount = newDocumentTypePatternsCount + 1;
@@ -2260,7 +1294,7 @@ function postExcludePatterns(match_pattern, match_pattern_type = 0, force) {
       csrfmiddlewaretoken: csrftoken,
     },
     success: function (data) {
-      $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+      $("#delta_urls_table").DataTable().ajax.reload(null, false);
       $("#exclude_patterns_table").DataTable().ajax.reload(null, false);
       if (currentTab === "") { //Only add a notification if we are on the first tab
         newExcludePatternsCount = newExcludePatternsCount + 1;
@@ -2302,7 +1336,7 @@ function postIncludePatterns(match_pattern, match_pattern_type = 0) {
       csrfmiddlewaretoken: csrftoken,
     },
     success: function (data) {
-      $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+      $("#delta_urls_table").DataTable().ajax.reload(null, false);
       $("#include_patterns_table").DataTable().ajax.reload(null, false);
       if (currentTab === "") { //Only add a notification if we are on the first tab
         newIncludePatternsCount = newIncludePatternsCount + 1;
@@ -2341,7 +1375,7 @@ function postTitlePatterns(
       csrfmiddlewaretoken: csrftoken
     },
     success: function (data) {
-      $('#candidate_urls_table').DataTable().ajax.reload(null, false);
+      $('#delta_urls_table').DataTable().ajax.reload(null, false);
       $('#title_patterns_table').DataTable().ajax.reload(null, false);
       if (currentTab === "") { //Only add a notification if we are on the first tab
         newTitlePatternsCount = newTitlePatternsCount + 1;
@@ -2385,11 +1419,11 @@ function deletePattern(
   url,
   data_type,
   url_type = null,
-  candidate_urls_count = null
+  delta_urls_count = null
 ) {
   if (url_type === MULTI_URL_PATTERN) {
     var confirmDelete = confirm(
-      `YOU ARE ATTEMPTING TO DELETE A MULTI-URL PATTERN. THIS WILL AFFECT ${candidate_urls_count} URLs. \n\nAre you sure you want to do this? Currently there is no way to delete a single URL from a Multi-URL pattern`
+      `YOU ARE ATTEMPTING TO DELETE A MULTI-URL PATTERN. THIS WILL AFFECT ${delta_urls_count} URLs. \n\nAre you sure you want to do this? Currently there is no way to delete a single URL from a Multi-URL pattern`
     );
   } else {
     $modal = $("#deletePatternModal").modal({
@@ -2421,7 +1455,7 @@ function deletePattern(
           },
           success: function (data) {
             $modal = $("#deletePatternModal").modal("hide");
-            $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+            $("#delta_urls_table").DataTable().ajax.reload(null, false);
             $("#exclude_patterns_table").DataTable().ajax.reload(null, false);
             $("#include_patterns_table").DataTable().ajax.reload(null, false);
             $("#title_patterns_table").DataTable().ajax.reload(null, false);
@@ -2450,7 +1484,7 @@ function deletePattern(
           "X-CSRFToken": csrftoken,
         },
         success: function (data) {
-          $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+          $("#delta_urls_table").DataTable().ajax.reload(null, false);
           $("#exclude_patterns_table").DataTable().ajax.reload(null, false);
           $("#include_patterns_table").DataTable().ajax.reload(null, false);
           $("#title_patterns_table").DataTable().ajax.reload(null, false);
@@ -2474,7 +1508,7 @@ function deletePattern(
       "X-CSRFToken": csrftoken,
     },
     success: function (data) {
-      $("#candidate_urls_table").DataTable().ajax.reload(null, false);
+      $("#delta_urls_table").DataTable().ajax.reload(null, false);
       $("#exclude_patterns_table").DataTable().ajax.reload(null, false);
       $("#include_patterns_table").DataTable().ajax.reload(null, false);
       $("#title_patterns_table").DataTable().ajax.reload(null, false);
@@ -2521,7 +1555,7 @@ function add_exclude_pattern(pattern) {
 }
 
 // Trigger action when the contexmenu is about to be shown
-$("body").on("contextmenu", ".candidate_url", function (event) {
+$("body").on("contextmenu", ".delta_url", function (event) {
   // Avoid the real one
   event.preventDefault();
 

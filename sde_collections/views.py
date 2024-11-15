@@ -18,7 +18,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .forms import CollectionGithubIssueForm, CommentsForm, RequiredUrlForm
-from .models.candidate_url import CandidateURL, ResolvedTitle, ResolvedTitleError
 from .models.collection import Collection, Comments, RequiredUrls, WorkflowHistory
 from .models.collection_choice_fields import (
     ConnectorChoices,
@@ -27,14 +26,7 @@ from .models.collection_choice_fields import (
     DocumentTypes,
     WorkflowStatusChoices,
 )
-from .models.delta_patterns import (
-    DeltaDivisionPattern,
-    DeltaDocumentTypePattern,
-    DeltaExcludePattern,
-    DeltaIncludePattern,
-    DeltaTitlePattern,
-)
-from .models.delta_url import CuratedUrl, DeltaUrl
+from .models.delta_url import DeltaURL, ResolvedTitle, ResolvedTitleError
 from .models.pattern import (
     DivisionPattern,
     DocumentTypePattern,
@@ -43,17 +35,10 @@ from .models.pattern import (
     TitlePattern,
 )
 from .serializers import (
-    CandidateURLBulkCreateSerializer,
-    CandidateURLSerializer,
     CollectionReadSerializer,
     CollectionSerializer,
-    CuratedUrlAPISerializer,
-    CuratedURLSerializer,
-    DeltaDivisionPatternSerializer,
-    DeltaDocumentTypePatternSerializer,
-    DeltaExcludePatternSerializer,
-    DeltaIncludePatternSerializer,
-    DeltaTitlePatternSerializer,
+    DeltaURLAPISerializer,
+    DeltaURLBulkCreateSerializer,
     DeltaURLSerializer,
     DivisionPatternSerializer,
     DocumentTypePatternSerializer,
@@ -81,8 +66,8 @@ class CollectionListView(LoginRequiredMixin, ListView):
             super()
             .get_queryset()
             .filter(delete=False)
-            .annotate(num_candidate_urls=models.Count("candidate_urls"))
-            .order_by("-num_candidate_urls")
+            .annotate(num_delta_urls=models.Count("delta_urls"))
+            .order_by("-num_delta_urls")
         )
 
     def get_context_data(self, **kwargs):
@@ -199,14 +184,14 @@ class RequiredUrlsDeleteView(LoginRequiredMixin, DeleteView):
         return reverse("sde_collections:detail", kwargs={"pk": self.object.collection.pk})
 
 
-class CandidateURLsListView(LoginRequiredMixin, ListView):
+class DeltaURLsListView(LoginRequiredMixin, ListView):
     """
     Display a list of collections in the system
     """
 
-    model = CandidateURL
-    template_name = "sde_collections/candidate_urls_list.html"
-    context_object_name = "candidate_urls"
+    model = DeltaURL
+    template_name = "sde_collections/delta_urls_list.html"
+    context_object_name = "delta_urls"
     # paginate_by = 1000
 
     def _filter_by_is_exluded(self, queryset, is_excluded):
@@ -229,7 +214,7 @@ class CandidateURLsListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["segment"] = "candidate-url-list"
+        context["segment"] = "delta-url-list"
         context["collection"] = self.collection
         context["regex_exclude_patterns"] = self.collection.excludepattern.filter(
             match_pattern_type=2
@@ -269,68 +254,8 @@ class CollectionFilterMixin:
         return super().get_queryset().filter(collection=collection)
 
 
-class CandidateURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = CandidateURL.objects.all()
-    serializer_class = CandidateURLSerializer
-
-    def _filter_by_is_excluded(self, queryset, is_excluded):
-        if is_excluded == "false":
-            queryset = queryset.filter(excluded=False)
-        elif is_excluded == "true":
-            queryset = queryset.exclude(excluded=False)
-        return queryset
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.request.method == "GET":
-            # Filter based on exclusion status
-            is_excluded = self.request.GET.get("is_excluded")
-            if is_excluded:
-                queryset = self._filter_by_is_excluded(queryset, is_excluded)
-        return queryset.order_by("url")
-
-    def update_division(self, request, pk=None):
-        candidate_url = get_object_or_404(CandidateURL, pk=pk)
-        division = request.data.get("division")
-        if division:
-            candidate_url.division = division
-            candidate_url.save()
-            return Response(status=status.HTTP_200_OK)
-        return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
-
-
-class CuratedURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = CuratedUrl.objects.all()
-    serializer_class = CuratedURLSerializer
-
-    def _filter_by_is_excluded(self, queryset, is_excluded):
-        if is_excluded == "false":
-            queryset = queryset.filter(excluded=False)
-        elif is_excluded == "true":
-            queryset = queryset.exclude(excluded=False)
-        return queryset
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.request.method == "GET":
-            # Filter based on exclusion status
-            is_excluded = self.request.GET.get("is_excluded")
-            if is_excluded:
-                queryset = self._filter_by_is_excluded(queryset, is_excluded)
-        return queryset.order_by("url")
-
-    def update_division(self, request, pk=None):
-        curated_url = get_object_or_404(CuratedUrl, pk=pk)
-        division = request.data.get("division")
-        if division:
-            curated_url.division = division
-            curated_url.save()
-            return Response(status=status.HTTP_200_OK)
-        return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
-
-
 class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaUrl.objects.all()
+    queryset = DeltaURL.objects.all()
     serializer_class = DeltaURLSerializer
 
     def _filter_by_is_excluded(self, queryset, is_excluded):
@@ -350,7 +275,7 @@ class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
         return queryset.order_by("url")
 
     def update_division(self, request, pk=None):
-        delta_url = get_object_or_404(DeltaUrl, pk=pk)
+        delta_url = get_object_or_404(DeltaURL, pk=pk)
         division = request.data.get("division")
         if division:
             delta_url.division = division
@@ -359,9 +284,9 @@ class DeltaURLViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
         return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
 
 
-class CandidateURLBulkCreateView(generics.ListCreateAPIView):
-    queryset = CandidateURL.objects.all()
-    serializer_class = CandidateURLBulkCreateSerializer
+class DeltaURLBulkCreateView(generics.ListCreateAPIView):
+    queryset = DeltaURL.objects.all()
+    serializer_class = DeltaURLBulkCreateSerializer
 
     def perform_create(self, serializer, collection_id=None):
         for validated_data in serializer.validated_data:
@@ -371,7 +296,7 @@ class CandidateURLBulkCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         config_folder = kwargs.get("config_folder")
         collection = Collection.objects.get(config_folder=config_folder)
-        collection.candidate_urls.all().delete()
+        collection.delta_urls.all().delete()
 
         serializer = self.get_serializer(data=request.data, many=True)
         serializer.is_valid(raise_exception=True)
@@ -382,8 +307,8 @@ class CandidateURLBulkCreateView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class CuratedURLAPIView(ListAPIView):
-    serializer_class = CuratedUrlAPISerializer
+class DeltaURLAPIView(ListAPIView):
+    serializer_class = DeltaURLAPISerializer
 
     def get(self, request, *args, **kwargs):
         config_folder = kwargs.get("config_folder")
@@ -392,7 +317,7 @@ class CuratedURLAPIView(ListAPIView):
 
     def get_queryset(self):
         queryset = (
-            CuratedUrl.objects.filter(collection__config_folder=self.config_folder)
+            DeltaURL.objects.filter(collection__config_folder=self.config_folder)
             .with_exclusion_status()
             .filter(excluded=False)
         )
@@ -419,26 +344,6 @@ class ExcludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
             return super().create(request, *args, **kwargs)
 
 
-class DeltaExcludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaExcludePattern.objects.all()
-    serializer_class = DeltaExcludePatternSerializer
-
-    def get_queryset(self):
-        return super().get_queryset().order_by("match_pattern")
-
-    def create(self, request, *args, **kwargs):
-        match_pattern = request.POST.get("match_pattern")
-        collection_id = request.POST.get("collection")
-        try:
-            DeltaExcludePattern.objects.get(
-                collection_id=Collection.objects.get(id=collection_id),
-                match_pattern=match_pattern,
-            ).delete()
-            return Response(status=status.HTTP_200_OK)
-        except DeltaExcludePattern.DoesNotExist:
-            return super().create(request, *args, **kwargs)
-
-
 class IncludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
     queryset = IncludePattern.objects.all()
     serializer_class = IncludePatternSerializer
@@ -459,37 +364,9 @@ class IncludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
             return super().create(request, *args, **kwargs)
 
 
-class DeltaIncludePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaIncludePattern.objects.all()
-    serializer_class = DeltaIncludePatternSerializer
-
-    def get_queryset(self):
-        return super().get_queryset().order_by("match_pattern")
-
-    def create(self, request, *args, **kwargs):
-        match_pattern = request.POST.get("match_pattern")
-        collection_id = request.POST.get("collection")
-        try:
-            DeltaIncludePattern.objects.get(
-                collection_id=Collection.objects.get(id=collection_id),
-                match_pattern=match_pattern,
-            ).delete()
-            return Response(status=status.HTTP_200_OK)
-        except DeltaIncludePattern.DoesNotExist:
-            return super().create(request, *args, **kwargs)
-
-
 class TitlePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
     queryset = TitlePattern.objects.all()
     serializer_class = TitlePatternSerializer
-
-    def get_queryset(self):
-        return super().get_queryset().order_by("match_pattern")
-
-
-class DeltaTitlePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaTitlePattern.objects.all()
-    serializer_class = DeltaTitlePatternSerializer
 
     def get_queryset(self):
         return super().get_queryset().order_by("match_pattern")
@@ -520,49 +397,9 @@ class DocumentTypePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
                 return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class DeltaDocumentTypePatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaDocumentTypePattern.objects.all()
-    serializer_class = DeltaDocumentTypePatternSerializer
-
-    def get_queryset(self):
-        return super().get_queryset().order_by("match_pattern")
-
-    def create(self, request, *args, **kwargs):
-        document_type = request.POST.get("document_type")
-        if not int(document_type) == 0:  # 0=none
-            return super().create(request, *args, **kwargs)
-        else:
-            collection_id = request.POST.get("collection")
-            match_pattern = request.POST.get("match_pattern")
-            try:
-                DeltaDocumentTypePattern.objects.get(
-                    collection_id=Collection.objects.get(id=collection_id),
-                    match_pattern=match_pattern,
-                    match_pattern_type=DeltaDocumentTypePattern.MatchPatternTypeChoices.INDIVIDUAL_URL,
-                ).delete()
-                return Response(status=status.HTTP_200_OK)
-            except DeltaDocumentTypePattern.DoesNotExist:
-                return Response(status=status.HTTP_204_NO_CONTENT)
-
-
 class DivisionPatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
     queryset = DivisionPattern.objects.all()
     serializer_class = DivisionPatternSerializer
-
-    def get_queryset(self):
-        return super().get_queryset().order_by("match_pattern")
-
-    def create(self, request, *args, **kwargs):
-        division = request.POST.get("division")
-        if division:
-            return super().create(request, *args, **kwargs)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST, data={"error": "Division is required."})
-
-
-class DeltaDivisionPatternViewSet(CollectionFilterMixin, viewsets.ModelViewSet):
-    queryset = DeltaDivisionPattern.objects.all()
-    serializer_class = DeltaDivisionPatternSerializer
 
     def get_queryset(self):
         return super().get_queryset().order_by("match_pattern")
@@ -710,8 +547,8 @@ class ResolvedTitleErrorListView(ListView):
 
 class TitlesAndErrorsView(View):
     def get(self, request, *args, **kwargs):
-        resolved_titles = ResolvedTitle.objects.select_related("title_pattern", "candidate_url").all()
-        resolved_title_errors = ResolvedTitleError.objects.select_related("title_pattern", "candidate_url").all()
+        resolved_titles = ResolvedTitle.objects.select_related("title_pattern", "delta_url").all()
+        resolved_title_errors = ResolvedTitleError.objects.select_related("title_pattern", "delta_url").all()
         context = {
             "resolved_titles": resolved_titles,
             "resolved_title_errors": resolved_title_errors,
