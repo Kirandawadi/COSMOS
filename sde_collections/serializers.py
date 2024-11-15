@@ -262,16 +262,34 @@ class BasePatternSerializer(serializers.ModelSerializer):
         abstract = True
 
 
+class DeltaBasePatternSerializer(serializers.ModelSerializer):
+    match_pattern_type_display = serializers.CharField(source="get_match_pattern_type_display", read_only=True)
+    delta_urls_count = serializers.SerializerMethodField(read_only=True)
+
+    def get_delta_urls_count(self, instance):
+        return instance.delta_urls.count()
+
+    class Meta:
+        fields = (
+            "id",
+            "collection",
+            "delta_match_pattern",
+            "delta_match_pattern_type",
+            "delta_match_pattern_type_display",
+            "delta_urls_count",
+        )
+
+
 class ExcludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
     class Meta:
         model = ExcludePattern
         fields = BasePatternSerializer.Meta.fields + ("reason",)
 
 
-class DeltaExcludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+class DeltaExcludePatternSerializer(DeltaBasePatternSerializer, serializers.ModelSerializer):
     class Meta:
         model = DeltaExcludePattern
-        fields = BasePatternSerializer.Meta.fields + ("reason",)
+        fields = DeltaBasePatternSerializer.Meta.fields + ("reason",)
 
 
 class IncludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
@@ -280,10 +298,10 @@ class IncludePatternSerializer(BasePatternSerializer, serializers.ModelSerialize
         fields = BasePatternSerializer.Meta.fields
 
 
-class DeltaIncludePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+class DeltaIncludePatternSerializer(DeltaBasePatternSerializer, serializers.ModelSerializer):
     class Meta:
         model = DeltaIncludePattern
-        fields = BasePatternSerializer.Meta.fields
+        fields = DeltaBasePatternSerializer.Meta.fields
 
 
 class TitlePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
@@ -303,10 +321,10 @@ class TitlePatternSerializer(BasePatternSerializer, serializers.ModelSerializer)
         return value
 
 
-class DeltaTitlePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+class DeltaTitlePatternSerializer(DeltaBasePatternSerializer, serializers.ModelSerializer):
     class Meta:
         model = DeltaTitlePattern
-        fields = BasePatternSerializer.Meta.fields + ("delta_title_pattern",)
+        fields = DeltaBasePatternSerializer.Meta.fields + ("delta_title_pattern",)
 
     def validate_match_pattern(self, value):
         try:
@@ -348,7 +366,7 @@ class DocumentTypePatternSerializer(BasePatternSerializer, serializers.ModelSeri
         return value
 
 
-class DeltaDocumentTypePatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+class DeltaDocumentTypePatternSerializer(DeltaBasePatternSerializer, serializers.ModelSerializer):
     document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
     document_type = serializers.ChoiceField(
         choices=DocumentTypes.choices
@@ -359,9 +377,9 @@ class DeltaDocumentTypePatternSerializer(BasePatternSerializer, serializers.Mode
 
     class Meta:
         model = DeltaDocumentTypePattern
-        fields = BasePatternSerializer.Meta.fields + (
-            "document_type",
-            "document_type_display",
+        fields = DeltaBasePatternSerializer.Meta.fields + (
+            "delta_document_type",
+            "delta_document_type_display",
         )
 
     def validate_match_pattern(self, value):
@@ -399,15 +417,15 @@ class DivisionPatternSerializer(BasePatternSerializer, serializers.ModelSerializ
         return value
 
 
-class DeltaDivisionPatternSerializer(BasePatternSerializer, serializers.ModelSerializer):
+class DeltaDivisionPatternSerializer(DeltaBasePatternSerializer, serializers.ModelSerializer):
     division_display = serializers.CharField(source="get_division_display", read_only=True)
     division = serializers.ChoiceField(choices=Divisions.choices)
 
     class Meta:
         model = DeltaDivisionPattern
-        fields = BasePatternSerializer.Meta.fields + (
-            "division",
-            "division_display",
+        fields = DeltaBasePatternSerializer.Meta.fields + (
+            "delta_division",
+            "delta_division_display",
         )
 
     def validate_match_pattern(self, value):

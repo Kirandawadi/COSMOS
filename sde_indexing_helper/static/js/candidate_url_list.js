@@ -9,6 +9,11 @@ var newExcludePatternsCount = 0;
 var newTitlePatternsCount = 0;
 var newDocumentTypePatternsCount = 0;
 var newDivisionPatternsCount = 0;
+var newDeltaIncludePatternsCount = 0;
+var newDeltaExcludePatternsCount = 0;
+var newDeltaTitlePatternsCount = 0;
+var newDeltaDocumentTypePatternsCount = 0;
+var newDeltaDivisionPatternsCount = 0;
 var currentTab = ""; //blank for the first tab
 var matchPatternTypeMap = {
   "Individual URL Pattern": 1,
@@ -839,6 +844,93 @@ function initializeDataTable() {
     exclude_patterns_table.columns(2).search(this.value).draw();
   });
 
+  var delta_exclude_patterns_table = $("#delta_exclude_patterns_table").DataTable({
+    // scrollY: true,
+    dom: "lBrtip",
+    buttons: [
+      {
+        text: "Add Pattern",
+        className: "addPattern",
+        action: function () {
+          $modal = $("#deltaExcludePatternModal").modal();
+        },
+      },
+      {
+        text: "Customize Columns",
+        className: "customizeColumns",
+        action: function () {
+          modalContents("#delta_exclude_patterns_table");
+        },
+      },
+    ],
+    lengthMenu: [
+      [25, 50, 100, 500],
+      ["Show 25", "Show 50", "Show 100", "Show 500"],
+    ],
+    orderCellsTop: true,
+    pageLength: 100,
+    ajax: `/api/delta-exclude-patterns/?format=datatables&collection_id=${collection_id}`,
+    initComplete: function (data) {
+      var table = $("#delta_exclude_patterns_table").DataTable();
+
+      this.api()
+        .columns()
+        .every(function (index) {
+          let column = this;
+          if (column.data().length === 0) {
+            $("#delta-exclude-patterns-dropdown-1").prop("disabled", true);
+          } else if (index === 1) {
+            $("#delta-exclude-patterns-dropdown-1").on("change", function () {
+              if ($(this).val() === "") table.columns(6).search("").draw();
+              else {
+                table
+                  .column(6)
+                  .search(matchPatternTypeMap[$(this).val()])
+                  .draw();
+              }
+            });
+          }
+        });
+    },
+    columns: [
+      { data: "delta_match_pattern", class: "whiteText" },
+      {
+        data: "delta_match_pattern_type_display",
+        class: "text-center whiteText",
+        sortable: true,
+      },
+      {
+        data: "reason",
+        class: "text-center whiteText",
+        sortable: false,
+        visible: false,
+      },
+      {
+        data: "delta_urls_count",
+        class: "text-center whiteText",
+        sortable: true,
+      },
+      {
+        data: null,
+        sortable: false,
+        class: "text-center",
+        render: function (data, type, row) {
+          return `<button class="btn btn-danger btn-sm delete-exclude-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
+        },
+      },
+      { data: "id", visible: false, searchable: false },
+      { data: "match_pattern_type", visible: false },
+    ],
+  });
+
+  $("#deltaMatchPatternFilter").on("beforeinput", function () {
+    delta_exclude_patterns_table.columns(0).search(this.value).draw();
+  });
+
+  $("#deltaReasonFilter").on("beforeinput", function () {
+    delta_exclude_patterns_table.columns(2).search(this.value).draw();
+  });
+
   var include_patterns_table = $("#include_patterns_table").DataTable({
     // scrollY: true,
     lengthMenu: [
@@ -914,6 +1006,84 @@ function initializeDataTable() {
   $("#candidateIncludeMatchPatternFilter").on("beforeinput", function () {
     include_patterns_table.columns(0).search(this.value).draw();
   });
+
+  var delta_include_patterns_table = $("#delta_include_patterns_table").DataTable({
+    // scrollY: true,
+    lengthMenu: [
+      [25, 50, 100, 500],
+      ["Show 25", "Show 50", "Show 100", "Show 500"],
+    ],
+    dom: "lBrtip",
+    buttons: [
+      {
+        text: "Add Pattern",
+        className: "addPattern",
+        action: function () {
+          $modal = $("#deltaIncludePatternModal").modal();
+        },
+      },
+      {
+        text: "Customize Columns",
+        className: "customizeColumns",
+        action: function () {
+          modalContents("#delta_include_patterns_table");
+        },
+      },
+    ],
+    pageLength: 100,
+    orderCellsTop: true,
+    ajax: `/api/delta-include-patterns/?format=datatables&collection_id=${collection_id}`,
+    initComplete: function (data) {
+      var table = $("#delta_include_patterns_table").DataTable();
+      this.api()
+        .columns()
+        .every(function (index) {
+          let column = this;
+          if (column.data().length === 0) {
+            $("#delta-include-patterns-dropdown-1").prop("disabled", true);
+          } else {
+            if (index === 1) {
+              $("#delta-include-patterns-dropdown-1").on("change", function () {
+                if ($(this).val() === "") table.columns(5).search("").draw();
+                table
+                  .column(5)
+                  .search(matchPatternTypeMap[$(this).val()])
+                  .draw();
+              });
+            }
+          }
+        });
+    },
+    columns: [
+      { data: "delta_match_pattern", class: "whiteText" },
+      {
+        data: "delta_match_pattern_type_display",
+        class: "text-center whiteText",
+        sortable: false,
+      },
+      {
+        data: "delta_urls_count",
+        class: "text-center whiteText",
+        sortable: true,
+      },
+      {
+        data: null,
+        sortable: false,
+        class: "text-center",
+        render: function (data, type, row) {
+          return `<button class="btn btn-danger btn-sm delete-include-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
+        },
+      },
+      { data: "id", visible: false, searchable: false },
+      { data: "delta_match_pattern_type", visible: false },
+    ],
+  });
+
+  $("#deltaIncludeMatchPatternFilter").on("beforeinput", function () {
+    delta_include_patterns_table.columns(0).search(this.value).draw();
+  });
+
+
 
   var title_patterns_table = $("#title_patterns_table").DataTable({
     // scrollY: true,
@@ -997,6 +1167,90 @@ function initializeDataTable() {
 
   $("#candidateTitlePatternTypeFilter").on("beforeinput", function (val) {
     title_patterns_table.columns(2).search(this.value).draw();
+  });
+
+  var delta_title_patterns_table = $("#delta_title_patterns_table").DataTable({
+    // scrollY: true,
+    dom: "lBrtip",
+    serverSide: true,
+    paging: true,
+    buttons: [
+      {
+        text: "Add Pattern",
+        className: "addPattern",
+        action: function () {
+          $modal = $("#deltaTitlePatternModal").modal();
+        },
+      },
+      {
+        text: "Customize Columns",
+        className: "customizeColumns",
+        action: function () {
+          modalContents("#delta_title_patterns_table");
+        },
+      },
+    ],
+    lengthMenu: [
+      [25, 50, 100, 500, -1],
+      ["Show 25", "Show 50", "Show 100", "Show 500", "Show All"],
+    ],
+    pageLength: 50,
+    orderCellsTop: true,
+    ajax: `/api/delta-title-patterns/?format=datatables&collection_id=${collection_id}`,
+    initComplete: function (data) {
+      var table = $("#delta_title_patterns_table").DataTable();
+
+      this.api()
+        .columns()
+        .every(function (index) {
+          let column = this;
+          if (column.data().length === 0) {
+            $("#delta-title-patterns-dropdown-1").prop("disabled", true);
+          } else if (index === 1) {
+            $("#delta-title-patterns-dropdown-1").on("change", function () {
+              if ($(this).val() === "") table.columns(6).search("").draw();
+              else {
+                table
+                  .column(6)
+                  .search(matchPatternTypeMap[$(this).val()])
+                  .draw();
+              }
+            });
+          }
+        });
+    },
+    columns: [
+      { data: "delta_match_pattern", class: "whiteText" },
+      {
+        data: "delta_match_pattern_type_display",
+        class: "text-center whiteText",
+        sortable: false,
+      },
+      { data: "delta_title_pattern", class: "whiteText" },
+      {
+        data: "delta_urls_count",
+        class: "text-center whiteText",
+        sortable: true,
+      },
+      {
+        data: null,
+        sortable: false,
+        class: "text-center",
+        render: function (data, type, row) {
+          return `<button class="btn btn-danger btn-sm delete-title-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
+        },
+      },
+      { data: "id", visible: false, searchable: false },
+      { data: "delta_match_pattern_type", visible: false },
+    ],
+  });
+
+  $("#deltaTitleMatchPatternFilter").on("beforeinput", function (val) {
+    delta_title_patterns_table.columns(0).search(this.value).draw();
+  });
+
+  $("#deltaTitlePatternTypeFilter").on("beforeinput", function (val) {
+    delta_title_patterns_table.columns(2).search(this.value).draw();
   });
 
   var document_type_patterns_table = $(
@@ -1107,6 +1361,115 @@ function initializeDataTable() {
   $("#candidateDocTypeMatchPatternFilter").on("beforeinput", function (val) {
     document_type_patterns_table.columns(0).search(this.value).draw();
   });
+
+  var delta_document_type_patterns_table = $(
+    "#delta_document_type_patterns_table"
+  ).DataTable({
+    // scrollY: true,
+    dom: "lBrtip",
+    buttons: [
+      {
+        text: "Add Pattern",
+        className: "addPattern",
+        action: function () {
+          $modal = $("#deltaDocumentTypePatternModal").modal();
+        },
+      },
+      {
+        text: "Customize Columns",
+        className: "customizeColumns",
+        action: function () {
+          modalContents("#delta_document_type_patterns_table");
+        },
+      },
+    ],
+    lengthMenu: [
+      [25, 50, 100, 500],
+      ["Show 25", "Show 50", "Show 100", "Show 500"],
+    ],
+    orderCellsTop: true,
+    pageLength: 100,
+    ajax: `/api/delta_document-type-patterns/?format=datatables&collection_id=${collection_id}`,
+    initComplete: function (data) {
+      this.api()
+        .columns()
+        .every(function (index) {
+          var table = $("#delta_document_type_patterns_table").DataTable();
+
+          let addDropdownSelect = {
+            1: {
+              columnToSearch: 6,
+              matchPattern: {
+                "Individual URL Pattern": 1,
+                "Multi-URL Pattern": 2,
+              },
+            },
+            2: {
+              columnToSearch: 7,
+              matchPattern: {
+                Images: 1,
+                Data: 2,
+                Documentation: 3,
+                "Software and Tools": 4,
+                "Missions and Instruments": 5,
+              },
+            },
+          };
+
+          let column = this;
+          if (column.data().length === 0) {
+            $(`#delta-document-type-patterns-dropdown-${index}`).prop(
+              "disabled",
+              true
+            );
+          } else if (index in addDropdownSelect) {
+            $("#delta-document-type-patterns-dropdown-" + index).on(
+              "change",
+              function () {
+                let col = addDropdownSelect[index].columnToSearch;
+                let searchInput =
+                  addDropdownSelect[index].matchPattern[$(this).val()];
+                if ($(this).val() === "" || $(this).val() === undefined)
+                  table.columns(col).search("").draw();
+                else {
+                  table.columns(col).search(searchInput).draw();
+                }
+              }
+            );
+          }
+        });
+    },
+
+    columns: [
+      { data: "delta_match_pattern", class: "whiteText" },
+      {
+        data: "delta_match_pattern_type_display",
+        class: "text-center whiteText",
+        sortable: false,
+      },
+      { data: "delta_document_type_display", class: "whiteText" },
+      {
+        data: "delta_urls_count",
+        class: "text-center whiteText",
+        sortable: true,
+      },
+      {
+        data: null,
+        sortable: false,
+        class: "text-center",
+        render: function (data, type, row) {
+          return `<button class="btn btn-danger btn-sm delete-document-type-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
+        },
+      },
+      { data: "id", visible: false, searchable: false },
+      { data: "delta_match_pattern_type", visible: false },
+      { data: "delta_document_type", visible: false },
+    ],
+  });
+
+  $("#deltaDocTypeMatchPatternFilter").on("beforeinput", function (val) {
+    delta_document_type_patterns_table.columns(0).search(this.value).draw();
+  });
 }
 
 var division_patterns_table = $("#division_patterns_table").DataTable({
@@ -1209,6 +1572,105 @@ $("#candidateDivisionMatchPatternFilter").on("beforeinput", function (val) {
   division_patterns_table.columns(0).search(this.value).draw();
 });
 
+var delta_division_patterns_table = $("#delta_division_patterns_table").DataTable({
+  dom: "lBrtip",
+  buttons: [
+    {
+      text: "Add Pattern",
+      className: "addPattern",
+      action: function () {
+        $modal = $("#deltaDivisionPatternModal").modal();
+      },
+    },
+    {
+      text: "Customize Columns",
+      className: "customizeColumns",
+      action: function () {
+        modalContents("#delta_division_patterns_table");
+      },
+    },
+  ],
+  lengthMenu: [
+    [25, 50, 100, 500],
+    ["Show 25", "Show 50", "Show 100", "Show 500"],
+  ],
+  orderCellsTop: true,
+  pageLength: 100,
+  ajax: `/api/delta-division-patterns/?format=datatables&collection_id=${collection_id}`,
+  initComplete: function (data) {
+    this.api()
+      .columns()
+      .every(function (index) {
+        var table = $("#delta_division_patterns_table").DataTable();
+
+        let addDropdownSelect = {
+          1: {
+            columnToSearch: 6,
+            matchPattern: {
+              "Individual URL Pattern": 1,
+              "Multi-URL Pattern": 2,
+            },
+          },
+          2: {
+            columnToSearch: 7,
+            matchPattern: {
+              "Astrophysics": 1,
+              "Biological and Physical Sciences": 2,
+              "Earth Science": 3,
+              "Heliophysics": 4,
+              "Planetary Science": 5,
+            },
+          },
+        };
+
+        let column = this;
+        if (column.data().length === 0) {
+          $(`#delta-division-patterns-dropdown-${index}`).prop("disabled", true);
+        } else if (index in addDropdownSelect) {
+          $("#delta-division-patterns-dropdown-" + index).on("change", function () {
+            let col = addDropdownSelect[index].columnToSearch;
+            let searchInput =
+              addDropdownSelect[index].matchPattern[$(this).val()];
+            if ($(this).val() === "" || $(this).val() === undefined)
+              table.columns(col).search("").draw();
+            else {
+              table.columns(col).search(searchInput).draw();
+            }
+          });
+        }
+      });
+  },
+
+  columns: [
+    { data: "delta_match_pattern", class: "whiteText" },
+    {
+      data: "delta_match_pattern_type_display",
+      class: "text-center whiteText",
+      sortable: false,
+    },
+    { data: "delta_division_display", class: "whiteText" },
+    {
+      data: "delta_urls_count",
+      class: "text-center whiteText",
+      sortable: true,
+    },
+    {
+      data: null,
+      sortable: false,
+      class: "text-center",
+      render: function (data, type, row) {
+        return `<button class="btn btn-danger btn-sm delete-division-pattern-button" data-row-id="${row["id"]}"><i class="material-icons">delete</i></button >`;
+      },
+    },
+    { data: "id", visible: false, searchable: false },
+    { data: "delta_match_pattern_type", visible: false },
+    { data: "delta_division", visible: false },
+  ],
+});
+
+$("#deltaDivisionMatchPatternFilter").on("beforeinput", function (val) {
+  delta_division_patterns_table.columns(0).search(this.value).draw();
+});
 
 function handleTabsClick() {
   $("#includePatternsTab").on("click", function () {
@@ -1230,6 +1692,26 @@ function handleTabsClick() {
   $("#divisionPatternsTab").on("click", function () {
     newDivisionPatternsCount = 0;
     $("#divisionPatternsTab").html(`Division Patterns`);
+  });
+  $("#deltaIncludePatternsTab").on("click", function () {
+    newDeltaIncludePatternsCount = 0;
+    $("#deltaIncludePatternsTab").html(`Delta Include Patterns`);
+  });
+  $("#deltaExcludePatternsTab").on("click", function () {
+    newDeltaExcludePatternsCount = 0;
+    $("#deltaExcludePatternsTab").html(`Delta Exclude Patterns`);
+  });
+  $("#deltaTitlePatternsTab").on("click", function () {
+    newDeltaTitlePatternsCount = 0;
+    $("#deltaTitlePatternsTab").html(`Delta Title Patterns`);
+  });
+  $("#deltaDocumentTypePatternsTab").on("click", function () {
+    newDeltaDocumentTypePatternsCount = 0;
+    $("#deltaDocumentTypePatternsTab").html(`Delta Document Type Patterns`);
+  });
+  $("#deltaDivisionPatternsTab").on("click", function () {
+    newDeltaDivisionPatternsCount = 0;
+    $("#deltaDivisionPatternsTab").html(`Delta Division Patterns`);
   });
 }
 
