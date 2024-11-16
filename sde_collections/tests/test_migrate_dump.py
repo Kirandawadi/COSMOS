@@ -3,6 +3,10 @@
 
 import pytest
 
+from sde_collections.models.delta_patterns import (
+    DeltaExcludePattern,
+    DeltaIncludePattern,
+)
 from sde_collections.models.delta_url import DeltaUrl, DumpUrl
 from sde_collections.tests.factories import (
     CollectionFactory,
@@ -60,7 +64,7 @@ class TestMigrateDumpToDelta:
     def test_url_in_both_with_different_field(self):
         collection = CollectionFactory()
         dump_url = DumpUrlFactory(collection=collection, scraped_title="New Title")
-        curated_url = CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Old Title")  # noqa
+        CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Old Title")
         collection.migrate_dump_to_delta()
         delta = DeltaUrl.objects.get(url=dump_url.url)
         assert delta.to_delete is False
@@ -77,7 +81,7 @@ class TestMigrateDumpToDelta:
     def test_identical_url_in_both(self):
         collection = CollectionFactory()
         dump_url = DumpUrlFactory(collection=collection, scraped_title="Same Title")
-        curated_url = CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Same Title")  # noqa
+        CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Same Title")
         collection.migrate_dump_to_delta()
         assert not DeltaUrl.objects.filter(url=dump_url.url).exists()
 
@@ -200,7 +204,7 @@ class TestGranularFullMigrationFlow:
 def test_empty_delta_comparison_fields():
     collection = CollectionFactory()
     dump_url = DumpUrlFactory(collection=collection, scraped_title="Same Title")
-    curated_url = CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Same Title")  # noqa
+    CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Same Title")  # noqa
 
     global DELTA_COMPARISON_FIELDS
     original_fields = DELTA_COMPARISON_FIELDS
@@ -218,7 +222,7 @@ def test_empty_delta_comparison_fields():
 def test_partial_data_in_curated_urls():
     collection = CollectionFactory()
     dump_url = DumpUrlFactory(collection=collection, scraped_title="Title Exists")
-    curated_url = CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="")  # noqa
+    CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="")  # noqa
 
     collection.migrate_dump_to_delta()
 
@@ -226,3 +230,80 @@ def test_partial_data_in_curated_urls():
     delta = DeltaUrl.objects.get(url=dump_url.url)
     assert delta.scraped_title == "Title Exists"
     assert delta.to_delete is False
+
+
+@pytest.mark.django_db
+def test_patterns_applied_after_migration():
+    collection = CollectionFactory()
+
+    # Add DumpUrls to migrate
+    DumpUrlFactory(collection=collection, url="https://exclude.com")
+    DumpUrlFactory(collection=collection, url="https://include.com")
+    DumpUrlFactory(collection=collection, url="https://neutral.com")
+
+    # Create exclude and include patterns
+    exclude_pattern = DeltaExcludePattern.objects.create(
+        collection=collection, match_pattern_type=2, match_pattern="exclude.*"
+    )
+    include_pattern = DeltaIncludePattern.objects.create(
+        collection=collection, match_pattern_type=2, match_pattern="include.*"
+    )
+
+    # Perform the migration
+    collection.migrate_dump_to_delta()
+
+    # Check that the patterns were applied
+    exclude_pattern.refresh_from_db()
+    include_pattern.refresh_from_db()
+
+    # Verify exclude pattern relationship
+    assert exclude_pattern.delta_urls.filter(
+        url="https://exclude.com"
+    ).exists(), "Exclude pattern not applied to DeltaUrls."
+
+    # Verify include pattern relationship
+    assert include_pattern.delta_urls.filter(
+        url="https://include.com"
+    ).exists(), "Include pattern not applied to DeltaUrls."
+
+    # Ensure neutral URL is unaffected
+    assert not exclude_pattern.delta_urls.filter(
+        url="https://neutral.com"
+    ).exists(), "Exclude pattern incorrectly applied."
+    assert not include_pattern.delta_urls.filter(
+        url="https://neutral.com"
+    ).exists(), "Include pattern incorrectly applied."
+
+
+@pytest.mark.django_db
+def test_full_migration_with_patterns():
+    collection = CollectionFactory()
+
+    # Set up DumpUrls and CuratedUrls
+    DumpUrlFactory(collection=collection, url="https://new.com")
+    DumpUrlFactory(collection=collection, url="https://update.com", scraped_title="Updated Title")
+    CuratedUrlFactory(collection=collection, url="https://update.com", scraped_title="Old Title")
+    CuratedUrlFactory(collection=collection, url="https://delete.com")
+
+    # Create patterns
+    exclude_pattern = DeltaExcludePattern.objects.create(
+        collection=collection, match_pattern_type=2, match_pattern="delete.*"
+    )
+    include_pattern = DeltaIncludePattern.objects.create(
+        collection=collection, match_pattern_type=2, match_pattern="update.*"
+    )
+
+    # Perform migration
+    collection.migrate_dump_to_delta()
+
+    # Check DeltaUrls
+    assert DeltaUrl.objects.filter(url="https://new.com", to_delete=False).exists()
+    assert DeltaUrl.objects.filter(url="https://update.com", to_delete=False, scraped_title="Updated Title").exists()
+    assert DeltaUrl.objects.filter(url="https://delete.com", to_delete=True).exists()
+
+    # Check patterns
+    exclude_pattern.refresh_from_db()
+    include_pattern.refresh_from_db()
+
+    assert exclude_pattern.delta_urls.filter(url="https://delete.com").exists(), "Exclude pattern not applied."
+    assert include_pattern.delta_urls.filter(url="https://update.com").exists(), "Include pattern not applied."

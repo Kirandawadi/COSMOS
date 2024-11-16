@@ -3,6 +3,7 @@ import urllib.parse
 
 import requests
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -93,6 +94,28 @@ class Collection(models.Model):
         """Clears all DumpUrls for this collection."""
         DumpUrl.objects.filter(collection=self).delete()
 
+    def refresh_url_lists_for_all_patterns(self):
+        """
+        Updates pattern relations for all patterns associated with this collection.
+        """
+        # List of pattern models to update
+        pattern_models = [
+            "DeltaExcludePattern",
+            "DeltaIncludePattern",
+            "DeltaTitlePattern",
+            "DeltaDocumentTypePattern",
+            "DeltaDivisionPattern",
+        ]
+
+        # Loop through each model and update its relations
+        for model_name in pattern_models:
+            # Get the model dynamically
+            model = ContentType.objects.get(app_label="sde_collections", model=model_name.lower()).model_class()
+
+            # Filter patterns for the current collection and update relations
+            for pattern in model.objects.filter(collection=self):
+                pattern.refresh_url_lists()
+
     def migrate_dump_to_delta(self):
         """Main function to handle migration from DumpUrls to DeltaUrls with specific rules."""
         # Step 1: Clear existing DeltaUrls for this collection
@@ -121,6 +144,9 @@ class Collection(models.Model):
 
         # Step 5: Clear DumpUrls after migration is complete
         self.clear_dump_urls()
+
+        # Step 6: Reapply patterns to DeltaUrls
+        self.refresh_url_lists_for_all_patterns()
 
     def create_or_update_delta_url(self, url_instance, to_delete=False):
         """
@@ -172,7 +198,6 @@ class Collection(models.Model):
                         updated_fields[field_name] = delta_value
 
                 if updated_fields:
-                    # Use update to modify fields directly in the database
                     CuratedUrl.objects.filter(pk=curated.pk).update(**updated_fields)
             else:
                 # If no matching CuratedUrl, create a new one using all non-null and non-empty fields
@@ -185,6 +210,9 @@ class Collection(models.Model):
 
         # Step 3: Clear all DeltaUrls for this collection since they've been promoted
         DeltaUrl.objects.filter(collection=self).delete()
+
+        # Step 4: Reapply patterns to DeltaUrls
+        self.refresh_url_lists_for_all_patterns()
 
     def add_to_public_query(self):
         """Add the collection to the public query."""

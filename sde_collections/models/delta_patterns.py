@@ -41,7 +41,6 @@ class BaseMatchPattern(models.Model):
 
     def matched_urls(self):
         """Find all URLs matching the pattern."""
-        # Dynamically get the DeltaUrl model to avoid circular imports
         DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
         CuratedUrl = apps.get_model("sde_collections", "CuratedUrl")
 
@@ -61,6 +60,12 @@ class BaseMatchPattern(models.Model):
             "matching_delta_urls": matching_delta_urls,
             "matching_curated_urls": matching_curated_urls,
         }
+
+    def refresh_url_lists(self):
+        """Update the delta_urls and curated_urls ManyToMany relationships."""
+        matched_urls = self.matched_urls()
+        self.delta_urls.set(matched_urls["matching_delta_urls"])
+        self.curated_urls.set(matched_urls["matching_curated_urls"])
 
     def generate_delta_url(self, curated_url, fields_to_copy=None):
         """
@@ -93,9 +98,8 @@ class BaseMatchPattern(models.Model):
         if update_fields:
             matched_urls["matching_delta_urls"].update(**update_fields)
 
-        # Step 3: Populate ManyToMany relationships for DeltaUrls and CuratedUrls
-        self.delta_urls.add(*matched_urls["matching_delta_urls"])
-        self.curated_urls.add(*matched_urls["matching_curated_urls"])
+        # Update ManyToMany relationships
+        self.refresh_url_lists()
 
     def unapply(self):
         """Default unapply behavior."""
@@ -182,8 +186,7 @@ class DeltaTitlePattern(BaseMatchPattern):
             self.create_delta_if_title_differs(curated_url, DeltaResolvedTitle, DeltaResolvedTitleError)
 
         # Step 3: Update ManyToMany relationships for DeltaUrls and CuratedUrls
-        self.delta_urls.add(*matched_urls["matching_delta_urls"])
-        self.curated_urls.add(*matched_urls["matching_curated_urls"])
+        self.refresh_url_lists()
 
     def create_delta_if_title_differs(self, curated_url, DeltaResolvedTitle, DeltaResolvedTitleError):
         """
