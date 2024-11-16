@@ -240,6 +240,8 @@ class CollectionAdmin(admin.ModelAdmin, ExportCsvMixin, UpdateConfigMixin):
     list_display = (
         "name",
         "candidate_urls_count",
+        "delta_urls_count",
+        "included_curated_urls_count",
         "config_folder",
         "url",
         "division",
