@@ -68,7 +68,7 @@ def test_promotion_deletes_curated_urls(collection):
     collection.promote_to_curated()
 
     # create a new DeltaUrl marked for deletion
-    DeltaUrl.objects.create(collection=collection, url="https://example1.com", scraped_title="Title 1", delete=True)
+    DeltaUrl.objects.create(collection=collection, url="https://example1.com", scraped_title="Title 1", to_delete=True)
 
     # Promote the deletion
     collection.promote_to_curated()

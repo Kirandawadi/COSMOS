@@ -126,7 +126,7 @@ class DeltaUrl(BaseUrl):
     collection = models.ForeignKey("Collection", on_delete=models.CASCADE, related_name="delta_urls")
 
     objects = DeltaUrlManager()
-    delete = models.BooleanField(default=False)
+    to_delete = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "Delta Urls"

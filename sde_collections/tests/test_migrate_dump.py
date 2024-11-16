@@ -31,18 +31,18 @@ class TestMigrationHelpers:
     def test_create_or_update_delta_url_add(self):
         collection = CollectionFactory()
         dump_url = DumpUrlFactory(collection=collection)
-        collection.create_or_update_delta_url(dump_url, delete=False)
+        collection.create_or_update_delta_url(dump_url, to_delete=False)
         delta = DeltaUrl.objects.get(url=dump_url.url)
-        assert delta.delete is False
+        assert delta.to_delete is False
         for field in DELTA_COMPARISON_FIELDS:
             assert getattr(delta, field) == getattr(dump_url, field)
 
     def test_create_or_update_delta_url_delete(self):
         collection = CollectionFactory()
         curated_url = CuratedUrlFactory(collection=collection)
-        collection.create_or_update_delta_url(curated_url, delete=True)
+        collection.create_or_update_delta_url(curated_url, to_delete=True)
         delta = DeltaUrl.objects.get(url=curated_url.url)
-        assert delta.delete is True
+        assert delta.to_delete is True
         assert delta.scraped_title == ""
 
 
@@ -53,7 +53,7 @@ class TestMigrateDumpToDelta:
         dump_url = DumpUrlFactory(collection=collection)
         collection.migrate_dump_to_delta()
         delta = DeltaUrl.objects.get(url=dump_url.url)
-        assert delta.delete is False
+        assert delta.to_delete is False
         for field in DELTA_COMPARISON_FIELDS:
             assert getattr(delta, field) == getattr(dump_url, field)
 
@@ -63,7 +63,7 @@ class TestMigrateDumpToDelta:
         curated_url = CuratedUrlFactory(collection=collection, url=dump_url.url, scraped_title="Old Title")  # noqa
         collection.migrate_dump_to_delta()
         delta = DeltaUrl.objects.get(url=dump_url.url)
-        assert delta.delete is False
+        assert delta.to_delete is False
         assert delta.scraped_title == "New Title"
 
     def test_url_in_curated_only(self):
@@ -71,7 +71,7 @@ class TestMigrateDumpToDelta:
         curated_url = CuratedUrlFactory(collection=collection)
         collection.migrate_dump_to_delta()
         delta = DeltaUrl.objects.get(url=curated_url.url)
-        assert delta.delete is True
+        assert delta.to_delete is True
         assert delta.scraped_title == ""
 
     def test_identical_url_in_both(self):
@@ -91,16 +91,16 @@ class TestMigrateDumpToDelta:
         collection.migrate_dump_to_delta()
 
         # New URL moved to DeltaUrls
-        assert DeltaUrl.objects.filter(url=dump_url_new.url, delete=False).exists()
+        assert DeltaUrl.objects.filter(url=dump_url_new.url, to_delete=False).exists()
 
         # Updated URL moved to DeltaUrls
         delta_update = DeltaUrl.objects.get(url=dump_url_update.url)
         assert delta_update.scraped_title == "Updated Title"
-        assert delta_update.delete is False
+        assert delta_update.to_delete is False
 
         # Deleted URL in CuratedUrls marked as delete in DeltaUrls
         delta_delete = DeltaUrl.objects.get(url=curated_url_delete.url)
-        assert delta_delete.delete is True
+        assert delta_delete.to_delete is True
 
     def test_empty_collections(self):
         collection = CollectionFactory()
@@ -113,7 +113,7 @@ class TestMigrateDumpToDelta:
         collection.migrate_dump_to_delta()
         delta = DeltaUrl.objects.get(url=dump_url.url)
         assert delta.scraped_title == ""
-        assert delta.delete is False
+        assert delta.to_delete is False
 
 
 @pytest.mark.django_db
@@ -136,11 +136,11 @@ class TestMigrationIdempotency:
         dump_url = DumpUrlFactory(collection=collection)
 
         # First call
-        collection.create_or_update_delta_url(dump_url, delete=False)
+        collection.create_or_update_delta_url(dump_url, to_delete=False)
         assert DeltaUrl.objects.filter(url=dump_url.url).count() == 1
 
         # Second call with the same data
-        collection.create_or_update_delta_url(dump_url, delete=False)
+        collection.create_or_update_delta_url(dump_url, to_delete=False)
         assert DeltaUrl.objects.filter(url=dump_url.url).count() == 1  # Should still be one
 
 
@@ -157,7 +157,7 @@ def test_create_or_update_delta_url_field_copy():
         division=2,
     )
 
-    collection.create_or_update_delta_url(dump_url, delete=False)
+    collection.create_or_update_delta_url(dump_url, to_delete=False)
     delta = DeltaUrl.objects.get(url=dump_url.url)
 
     # Verify each field is copied correctly
@@ -174,7 +174,7 @@ class TestGranularFullMigrationFlow:
         collection.migrate_dump_to_delta()
 
         # New URL should be added to DeltaUrls
-        assert DeltaUrl.objects.filter(url=dump_url.url, delete=False).exists()
+        assert DeltaUrl.objects.filter(url=dump_url.url, to_delete=False).exists()
 
     def test_full_migration_updated_url(self):
         collection = CollectionFactory()
@@ -184,7 +184,7 @@ class TestGranularFullMigrationFlow:
         # URL with differing fields should be updated in DeltaUrls
         delta_update = DeltaUrl.objects.get(url=dump_url.url)
         assert delta_update.scraped_title == "Updated Title"
-        assert delta_update.delete is False
+        assert delta_update.to_delete is False
 
     def test_full_migration_deleted_url(self):
         collection = CollectionFactory()
@@ -193,7 +193,7 @@ class TestGranularFullMigrationFlow:
 
         # Missing URL in DumpUrls should be marked as delete in DeltaUrls
         delta_delete = DeltaUrl.objects.get(url=curated_url.url)
-        assert delta_delete.delete is True
+        assert delta_delete.to_delete is True
 
 
 @pytest.mark.django_db
@@ -225,4 +225,4 @@ def test_partial_data_in_curated_urls():
     # Since `scraped_title` differs (None vs "Title Exists"), it should create a DeltaUrl
     delta = DeltaUrl.objects.get(url=dump_url.url)
     assert delta.scraped_title == "Title Exists"
-    assert delta.delete is False
+    assert delta.to_delete is False

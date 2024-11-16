@@ -87,4 +87,4 @@ class DeltaUrlFactory(factory.django.DjangoModelFactory):
     collection = factory.SubFactory(CollectionFactory)
     url = factory.Faker("url")
     scraped_title = factory.Faker("sentence")
-    delete = False
+    to_delete = False

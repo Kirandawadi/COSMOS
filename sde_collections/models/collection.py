@@ -109,27 +109,27 @@ class Collection(models.Model):
             if curated:
                 # Check if any of the comparison fields differ
                 if any(getattr(curated, field) != getattr(dump, field) for field in DELTA_COMPARISON_FIELDS):
-                    self.create_or_update_delta_url(dump, delete=False)
+                    self.create_or_update_delta_url(dump, to_delete=False)
             else:
                 # New URL, not in CuratedUrls; move it entirely to DeltaUrls
-                self.create_or_update_delta_url(dump, delete=False)
+                self.create_or_update_delta_url(dump, to_delete=False)
 
         # Step 4: Identify CuratedUrls missing in DumpUrls and flag them for deletion in DeltaUrls
         for curated in curated_urls.values():
             if curated.url not in dump_urls:
-                self.create_or_update_delta_url(curated, delete=True)
+                self.create_or_update_delta_url(curated, to_delete=True)
 
         # Step 5: Clear DumpUrls after migration is complete
         self.clear_dump_urls()
 
-    def create_or_update_delta_url(self, url_instance, delete=False):
+    def create_or_update_delta_url(self, url_instance, to_delete=False):
         """
         Creates or updates a DeltaUrl entry based on the given DumpUrl or CuratedUrl object.
-        If delete is True, only sets the delete flag and url.
+        If to_delete is True, only sets the to_delete flag and url.
         """
-        if delete:
-            # Only set the URL and delete flag
-            DeltaUrl.objects.update_or_create(collection=self, url=url_instance.url, defaults={"delete": True})
+        if to_delete:
+            # Only set the URL and to_delete flag
+            DeltaUrl.objects.update_or_create(collection=self, url=url_instance.url, defaults={"to_delete": True})
         else:
             # Automatically move over all fields from url_instance
             fields_to_copy = {
@@ -137,7 +137,7 @@ class Collection(models.Model):
                 for field in DumpUrl._meta.fields  # Assumes same fields for CuratedUrl via inheritance
                 if field.name not in ["id", "collection", "url"]
             }
-            fields_to_copy["delete"] = False  # Ensure delete flag is False
+            fields_to_copy["to_delete"] = False  # Ensure to_delete flag is False
 
             DeltaUrl.objects.update_or_create(collection=self, url=url_instance.url, defaults=fields_to_copy)
 
@@ -155,7 +155,7 @@ class Collection(models.Model):
             curated = curated_urls.get(url)
 
             # Delete the CuratedUrl if the DeltaUrl is marked for deletion
-            if delta.delete:
+            if delta.to_delete:
                 if curated:
                     curated.delete()
                 continue
@@ -164,7 +164,7 @@ class Collection(models.Model):
                 updated_fields = {}
                 for field in delta._meta.fields:
                     field_name = field.name
-                    if field_name == "delete":
+                    if field_name == "to_delete":
                         continue
 
                     delta_value = getattr(delta, field_name)
@@ -179,7 +179,7 @@ class Collection(models.Model):
                 new_data = {
                     field.name: getattr(delta, field.name)
                     for field in delta._meta.fields
-                    if field.name not in ["delete", "collection"] and getattr(delta, field.name) not in [None, ""]
+                    if field.name not in ["to_delete", "collection"] and getattr(delta, field.name) not in [None, ""]
                 }
                 CuratedUrl.objects.create(collection=self, **new_data)
 
