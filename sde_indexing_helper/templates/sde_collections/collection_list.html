@@ -19,6 +19,8 @@
                 <th class="text-center noBorder url-th" style="padding-right:25px !important">URL</th>
                 <th class="text-center noBorder" style="padding-right:25px !important">Division</th>
                 <th class="text-center noBorder" style="padding-right:25px !important">Candidate URLs</th>
+                <!--delta url column <th class="text-center noBorder" style="padding-right:25px !important">Delta URLs</th> -->
+                <!--delta url column <th class="text-center noBorder" style="padding-right:25px !important">Curated URLs</th> -->
                 <th class="text-center noBorder" style="padding-right:25px !important">Workflow Status</th>
                 <th class="text-center noBorder" style="padding-right:25px !important">Curator</th>
                 <th class="text-center noBorder" style="padding-right:25px !important">Connector Type</th>
@@ -30,6 +32,7 @@
                 <td class="filterRowBottom" ><input class="table_filter_row_input textBoxStyling" type="text" id="nameFilter" placeholder="Name" /></td>
                 <td class="filterRowBottom url-td"><input class="table_filter_row_input textBoxStyling" type="text" id="urlFilter" placeholder="URL" /></td>
                 <td class="filterRowBottom"><input class="table_filter_row_input textBoxStyling" type="text" id="divisionFilter" placeholder="Division" /></td>
+                <!--delta url column <td class="filterRowBottom"></td> -->
                 <td class="filterRowBottom"></td>
                 <td class="filterRowBottom"><select id="collection-dropdown-4" class="select-dropdown selectStyling">
                     <option value="">SELECT</option>
@@ -72,6 +75,16 @@
                            class="btn btn-sm {% if collection.num_candidate_urls > 0 %}btn-primary {% else %}disabled{% endif %}candidateCount"
                            role="button">{{ collection.num_candidate_urls|intcomma }}</a>
                     </td>
+                    <!--delta url column <td class="noBorder centerAlign">
+                        <a href=" {% if collection.delta_urls_count > 0 %} {% url 'sde_collections:delta_urls' collection.pk %} {% endif %} "
+                           class="btn btn-sm {% if collection.delta_urls_count > 0 %}btn-primary {% else %}disabled{% endif %}deltaCount"
+                           role="button">{{ collection.delta_urls_count|intcomma }}</a>
+                    </td>
+                    <td class="noBorder centerAlign">
+                        <a href=" {% if collection.included_curated_urls_count > 0 %} {% url 'sde_collections:delta_urls' collection.pk %} {% endif %} "
+                           class="btn btn-sm {% if collection.included_curated_urls_count > 0 %}btn-primary {% else %}disabled{% endif %}curatedCount"
+                           role="button">{{ collection.included_curated_urls_count|intcomma }}</a>
+                    </td> -->
                     <td class="noBorder">
                         <div class="dropdown workflow_status_dropdown"
                              data-match-pattern
