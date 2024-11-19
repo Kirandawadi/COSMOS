@@ -155,7 +155,46 @@ class DeltaURLAPISerializer(serializers.ModelSerializer):
             "url",
             "title",
             "document_type",
-            "hash",
+            "file_extension",
+            "tree_root",
+        )
+
+    def get_document_type(self, obj):
+        if obj.document_type is not None:
+            return obj.get_document_type_display()
+        elif obj.collection.document_type is not None:
+            return obj.collection.get_document_type_display()
+        else:
+            return "Unknown"
+
+    def get_title(self, obj):
+        return obj.generated_title if obj.generated_title else obj.scraped_title
+
+    def get_file_extension(self, obj):
+        return obj.fileext
+
+    def get_tree_root(self, obj):
+        if obj.collection.is_multi_division:
+            if obj.division:
+                return f"/{obj.get_division_display()}/{obj.collection.name}/"
+            else:
+                return f"/{obj.collection.get_division_display()}/{obj.collection.name}/"
+        else:
+            return obj.collection.tree_root
+
+
+class CuratedURLAPISerializer(serializers.ModelSerializer):
+    document_type = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    file_extension = serializers.SerializerMethodField()
+    tree_root = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CuratedUrl
+        fields = (
+            "url",
+            "title",
+            "document_type",
             "file_extension",
             "tree_root",
         )

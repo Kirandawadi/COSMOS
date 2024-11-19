@@ -42,6 +42,7 @@ from .models.delta_url import (
 from .serializers import (
     CollectionReadSerializer,
     CollectionSerializer,
+    CuratedURLAPISerializer,
     CuratedURLSerializer,
     DeltaURLAPISerializer,
     DeltaURLBulkCreateSerializer,
@@ -354,6 +355,23 @@ class DeltaURLAPIView(ListAPIView):
     def get_queryset(self):
         queryset = (
             DeltaUrl.objects.filter(collection__config_folder=self.config_folder)
+            .with_exclusion_status()
+            .filter(excluded=False)
+        )
+        return queryset
+
+
+class CuratedURLAPIView(ListAPIView):
+    serializer_class = CuratedURLAPISerializer
+
+    def get(self, request, *args, **kwargs):
+        config_folder = kwargs.get("config_folder")
+        self.config_folder = config_folder
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        queryset = (
+            CuratedUrl.objects.filter(collection__config_folder=self.config_folder)
             .with_exclusion_status()
             .filter(excluded=False)
         )

@@ -60,5 +60,11 @@ urlpatterns = [
         view=views.DeltaURLAPIView.as_view(),
         name="delta-url-api",
     ),
+    path("curated-urls-api/<str:config_folder>/", view=views.CuratedURLAPIView.as_view(), name="curated-url-api"),
+    path(
+        "candidate-url-api/<str:config_folder>/",
+        view=views.CuratedURLAPIView.as_view(),
+        name="candidate-url-api",
+    ),
     path("titles-and-errors/", views.TitlesAndErrorsView.as_view(), name="titles-and-errors-list"),
 ]
