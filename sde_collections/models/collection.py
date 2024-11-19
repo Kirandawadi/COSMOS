@@ -623,7 +623,13 @@ class Collection(models.Model):
                 if transition in STATUS_CHANGE_NOTIFICATIONS:
                     details = STATUS_CHANGE_NOTIFICATIONS[transition]
                     message = format_slack_message(self.name, details, self.id)
-                    send_slack_message(message)
+                    try:
+                        # TODO: find a better way to allow this to work on dev environments with
+                        # no slack integration
+                        send_slack_message(message)
+                    except Exception as e:
+                        print(f"Error sending Slack message: {e}")
+
         # Call the parent class's save method
         super().save(*args, **kwargs)
 
@@ -722,7 +728,9 @@ def create_configs_on_status_change(sender, instance, created, **kwargs):
         if instance.workflow_status == WorkflowStatusChoices.READY_FOR_CURATION:
             instance.create_plugin_config(overwrite=True)
         elif instance.workflow_status == WorkflowStatusChoices.CURATED:
+            print(instance.workflow_status)
             instance.promote_to_curated()
+            print(instance.workflow_status)
         elif instance.workflow_status == WorkflowStatusChoices.READY_FOR_ENGINEERING:
             instance.create_scraper_config(overwrite=False)
             instance.create_indexer_config(overwrite=False)
