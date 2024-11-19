@@ -728,9 +728,7 @@ def create_configs_on_status_change(sender, instance, created, **kwargs):
         if instance.workflow_status == WorkflowStatusChoices.READY_FOR_CURATION:
             instance.create_plugin_config(overwrite=True)
         elif instance.workflow_status == WorkflowStatusChoices.CURATED:
-            print(instance.workflow_status)
             instance.promote_to_curated()
-            print(instance.workflow_status)
         elif instance.workflow_status == WorkflowStatusChoices.READY_FOR_ENGINEERING:
             instance.create_scraper_config(overwrite=False)
             instance.create_indexer_config(overwrite=False)
