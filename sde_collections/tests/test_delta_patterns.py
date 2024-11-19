@@ -325,29 +325,35 @@ class TestDeltaTitlePattern:
         assert not pattern.delta_urls.filter(pk=delta_url.pk).exists()
         assert not pattern.curated_urls.filter(pk=curated_url.pk).exists()
 
-    # TODO: work on this test logic
-    # def test_pattern_reapplication_does_not_duplicate_delta_urls(self):
-    #     """
-    #     Ensures that reapplying a pattern does not create duplicate `DeltaUrls` or affect existing `CuratedUrls`.
-    #     """
-    #     collection = CollectionFactory()
-    #     delta_url = DeltaUrlFactory(collection=collection,
-    #                                 url="https://example.com/page",
-    #                                 scraped_title="Title Before")
+    def test_pattern_reapplication_does_not_duplicate_delta_urls(self):
+        """
+        Ensures that reapplying a pattern does not create duplicate `DeltaUrls` or affect existing `CuratedUrls`.
+        """
+        collection = CollectionFactory()
+        delta_url = DeltaUrlFactory(collection=collection, url="https://example.com/page", scraped_title="Title Before")
 
-    #     # Promote to CuratedUrl
-    #     collection.promote_to_curated()
-    #     curated_url = CuratedUrl.objects.get(url=delta_url.url)
+        # Apply a pattern
+        pattern = DeltaTitlePattern.objects.create(
+            collection=collection,
+            match_pattern="https://example.com/*",
+            match_pattern_type=2,
+            title_pattern="{title} - Processed",
+        )
 
-    #     # Apply a pattern
-    #     pattern = DeltaTitlePattern.objects.create(
-    #         collection=collection, match_pattern="https://example.com/*", match_pattern_type=2, title_patte......
-    #     )
-    #     pattern.apply()
+        delta_url.refresh_from_db()
+        delta_url.generated_title = "Title Before - Processed"
 
-    #     # Ensure no new `DeltaUrl` is created after reapplying the pattern
-    #     pattern.apply()
-    #     assert DeltaUrl.objects.filter(url=curated_url.url).count() == 0
+        # Promote to CuratedUrl
+        collection.promote_to_curated()
+        curated_url = CuratedUrl.objects.get(url=delta_url.url)
+
+        # Ensure no new `DeltaUrl` is created after reapplying the pattern
+        pattern.apply()
+        assert DeltaUrl.objects.filter(url=curated_url.url).count() == 0
+
+        # Ensure no new `DeltaUrl` is created after reapplying the pattern
+        pattern.apply()
+        assert DeltaUrl.objects.filter(url=curated_url.url).count() == 0
 
 
 @pytest.mark.django_db
