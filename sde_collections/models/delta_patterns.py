@@ -40,7 +40,10 @@ class BaseMatchPattern(models.Model):
     )
 
     def matched_urls(self):
-        """Find all URLs matching the pattern."""
+        """
+        Find all URLs matching the pattern.
+        This does not update pattern.delta_urls or pattern.curated_urls.
+        """
         DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
         CuratedUrl = apps.get_model("sde_collections", "CuratedUrl")
 
@@ -92,6 +95,10 @@ class BaseMatchPattern(models.Model):
 
         # Step 1: Generate or update DeltaUrls for each matching CuratedUrl
         for curated_url in matched_urls["matching_curated_urls"]:
+            # Check if the curated_url is already linked to this pattern
+            if self.curated_urls.filter(pk=curated_url.pk).exists():
+                # Skip creating a DeltaUrl if the curated_url is already associated with this pattern
+                continue
             self.generate_delta_url(curated_url, fields_to_copy)
 
         # Step 2: Apply updates to fields on matching DeltaUrls
