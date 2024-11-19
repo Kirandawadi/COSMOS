@@ -519,21 +519,21 @@ function initializeDataTable() {
   $("#curatedUrlFilter").on(
     "beforeinput",
     DataTable.util.debounce(function (val) {
-      delta_urls_table.columns(0).search(this.value).draw();
+      curated_urls_table.columns(0).search(this.value).draw();
     }, 1000)
   );
 
   $("#curatedScrapedTitleFilter").on(
     "beforeinput",
     DataTable.util.debounce(function (val) {
-      delta_urls_table.columns(2).search(this.value).draw();
+      curated_urls_table.columns(2).search(this.value).draw();
     }, 1000)
   );
 
   $("#curatedNewTitleFilter").on(
     "beforeinput",
     DataTable.util.debounce(function (val) {
-      delta_urls_table.columns(3).search(this.value).draw();
+      curated_urls_table.columns(3).search(this.value).draw();
     }, 1000)
   );
 
