@@ -90,28 +90,33 @@ class Api:
         """by default, the source is /SDE/. However for the various dev servers, the source is tends to be /scrapers/"""
         return "scrapers" if self.server_name in self.dev_servers else "SDE"
 
-    def process_response(self, url: str, payload: dict[str, Any]) -> Any:
-        response = requests.post(url, headers={}, json=payload, verify=False)
-
+    def process_response(
+        self,
+        url: str,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        raw_data: str | None = None,
+    ) -> Any:
+        """Sends a POST request and processes the response."""
+        response = requests.post(
+            url, headers=headers, json=payload if raw_data is None else None, data=raw_data, verify=False
+        )
         if response.status_code == requests.codes.ok:
             return response.json()
         else:
             response.raise_for_status()
 
-    def query(self, page: int, collection_config_folder: str = None, source: str = None) -> Any:
+    def query(self, page: int, collection_config_folder: str | None = None, source: str | None = None) -> Any:
         url = f"{self.base_url}/api/v1/search.query"
         if self.server_name in self.dev_servers:
             user = self._get_user()
             password = self._get_password()
-
             if not user or not password:
                 raise ValueError(
                     "User and password are required for the query endpoint on the following servers: {self.dev_servers}"
                 )
             authentication = f"?Password={password}&User={user}"
             url = f"{url}{authentication}"
-        else:
-            url = f"{self.base_url}/api/v1/search.query"
 
         payload = {
             "app": self.app_name,
@@ -135,26 +140,18 @@ class Api:
         token = self._get_token()
         if not token:
             raise ValueError("A token is required to use the SQL endpoint")
+
         url = f"{self.base_url}/api/v1/engine.sql"
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
-        payload = json.dumps(
+        raw_payload = json.dumps(
             {
                 "method": "engine.sql",
                 "sql": sql,
                 "pretty": True,
-                "log": False,
-                "output": "json",
-                "resolveIndexList": "false",
-                "engines": "default",
             }
         )
 
-        try:
-            response = requests.post(url, headers=headers, data=payload, timeout=10)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Api request to SQL endpoint failed: {str(e)}")
+        return self.process_response(url, headers=headers, raw_data=raw_payload)
 
     def get_full_texts(self, collection_config_folder: str, source: str = None) -> Any:
         """

@@ -7,11 +7,12 @@ from django.apps import apps
 from django.conf import settings
 from django.core import management
 from django.core.management.commands import loaddata
+from django.db import IntegrityError
 
 from config import celery_app
-from sde_collections.models.candidate_url import CandidateURL
 
 from .models.collection import Collection, WorkflowStatusChoices
+from .models.delta_url import DumpUrl
 from .sinequa_api import Api
 from .utils.github_helper import GitHubHandler
 
@@ -50,7 +51,7 @@ def _get_data_to_import(collection, server_name):
                 continue
 
             augmented_data = {
-                "model": "sde_collections.candidateurl",
+                "model": "sde_collections.url",
                 "fields": {
                     "collection": collection_pk,
                     "url": url,
@@ -145,31 +146,43 @@ def resolve_title_pattern(title_pattern_id):
 
 
 @celery_app.task
-def fetch_and_update_full_text(collection_id, server_name):
+def fetch_and_replace_full_text(collection_id, server_name):
     """
-    Task to fetch and update full text and metadata for all URLs associated with a specified collection
-    from a given server.
+    Task to fetch and replace full text and metadata for all URLs associated with a specified collection
+    from a given server. This task deletes all existing DumpUrl entries for the collection and creates
+    new entries based on the latest fetched data.
 
     Args:
         collection_id (int): The identifier for the collection in the database.
         server_name (str): The name of the server.
 
     Returns:
-        str: A message indicating the result of the operation, including the number of URLs processed
-             or a message if no records were found.
+        str: A message indicating the result of the operation, including the number of URLs processed.
     """
     collection = Collection.objects.get(id=collection_id)
     api = Api(server_name)
     documents = api.get_full_texts(collection.config_folder)
 
-    for doc in documents:
-        # if all values are not present, then it is skipped?
-        if not (doc["url"] and doc["full_text"] and doc["title"]):
-            continue
+    # Step 1: Delete all existing DumpUrl entries for the collection
+    deleted_count, _ = DumpUrl.objects.filter(collection=collection).delete()
 
-        CandidateURL.objects.update_or_create(
-            url=doc["url"],
-            collection=collection,
-            defaults={"scraped_text": doc["full_text"], "scraped_title": doc["title"]},
-        )
+    # Step 2: Create new DumpUrl entries from the fetched documents
+    processed_count = 0
+    for doc in documents:
+        try:
+            DumpUrl.objects.create(
+                url=doc["url"],
+                collection=collection,
+                scraped_text=doc.get("full_text", ""),
+                scraped_title=doc.get("title", ""),
+            )
+            processed_count += 1
+        except IntegrityError:
+            # Handle duplicate URL case if needed
+            print(f"Duplicate URL found, skipping: {doc['url']}")
+
+    collection.migrate_dump_to_delta()
+
+    print(f"Processed {processed_count} new records.")
+
     return f"Successfully processed {len(documents)} records and updated the database."
