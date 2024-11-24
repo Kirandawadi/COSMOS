@@ -24,7 +24,7 @@ class BaseMatchPattern(models.Model):
     collection = models.ForeignKey(
         "Collection",
         on_delete=models.CASCADE,
-        related_name="%(class)s",
+        related_name="%(class)ss",  # Makes collection.deltaincludepatterns.all()
         related_query_name="%(class)ss",
     )
     match_pattern = models.CharField(
@@ -33,11 +33,11 @@ class BaseMatchPattern(models.Model):
     match_pattern_type = models.IntegerField(choices=MatchPatternTypeChoices.choices, default=1)
     delta_urls = models.ManyToManyField(
         "DeltaUrl",
-        related_name="%(class)s_delta_urls",
+        related_name="%(class)ss",  # Makes delta_url.deltaincludepatterns.all()
     )
     curated_urls = models.ManyToManyField(
         "CuratedUrl",
-        related_name="%(class)s_curated_urls",
+        related_name="%(class)ss",  # Makes curated_url.deltaincludepatterns.all()
     )
 
     def get_regex_pattern(self) -> str:
