@@ -114,7 +114,8 @@ class Collection(models.Model):
 
             # Filter patterns for the current collection and update relations
             for pattern in model.objects.filter(collection=self):
-                pattern.refresh_url_lists()
+                pattern.update_affected_delta_urls_list()
+                pattern.update_affected_curated_urls_list()
 
     def migrate_dump_to_delta(self):
         """Main function to handle migration from DumpUrls to DeltaUrls with specific rules."""
