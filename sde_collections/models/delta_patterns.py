@@ -92,39 +92,40 @@ class BaseMatchPattern(models.Model):
         return self.match_pattern
 
 
-class DeltaExcludePattern(BaseMatchPattern):
-    """Pattern for marking URLs for exclusion."""
+class InclusionPatternBase(BaseMatchPattern):
+    """
+    Base class for patterns that handle URL inclusion/exclusion.
+    Both ExcludePattern and IncludePattern share the same core logic for managing
+    relationships and Delta URL creation/cleanup.
+    """
 
-    reason = models.TextField("Reason for excluding", default="", blank=True)
+    class Meta(BaseMatchPattern.Meta):
+        abstract = True
 
     def apply(self) -> None:
         """
-        Apply the pattern's effects to matching URLs. This involves:
-        1. Finding new Curated URLs that match the pattern but weren't previously affected
-        2. Creating Delta URLs for those newly affected Curated URLs ONLY IF they don't already have Delta URLs
-        3. Updating the pattern's list of affected Delta and Curated URLs
-
-        Note: The actual exclusion is handled through the many-to-many relationship,
-        so we don't need to modify existing Delta URLs.
+        Apply pattern effects to matching URLs:
+        1. Find new Curated URLs that match but weren't previously affected
+        2. Create Delta URLs for newly affected Curated URLs if needed
+        3. Update pattern relationships to manage inclusion/exclusion status
         """
         DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
 
         # Get QuerySet of all matching CuratedUrls
         matching_curated_urls = self.get_matching_curated_urls()
 
-        # Find Curated URLs that match but weren't previously affected by this pattern
+        # Find Curated URLs that match but weren't previously affected
         previously_unaffected_curated = matching_curated_urls.exclude(
             id__in=self.curated_urls.values_list("id", flat=True)
         )
 
-        # For each previously unaffected curated URL, ensure a DeltaUrl exists
-        # but ONLY create one if it doesn't already exist
+        # Create Delta URLs for newly affected Curated URLs if needed
         for curated_url in previously_unaffected_curated:
-            # Skip if ANY DeltaUrl exists for this URL (regardless of pattern association)
+            # Skip if Delta already exists
             if DeltaUrl.objects.filter(url=curated_url.url, collection=self.collection).exists():
                 continue
 
-            # Only create a new DeltaUrl if one doesn't exist
+            # Create new Delta URL copying fields from Curated URL
             fields = {
                 field.name: getattr(curated_url, field.name)
                 for field in curated_url._meta.fields
@@ -135,15 +136,15 @@ class DeltaExcludePattern(BaseMatchPattern):
 
             DeltaUrl.objects.create(**fields)
 
-        # Update the pattern's relationships - this is what actually handles the exclusion
+        # Update relationships - this handles inclusion/exclusion status
         self.update_affected_delta_urls_list()
 
     def unapply(self) -> None:
         """
         Remove this pattern's effects by:
-        1. Creating Delta URLs for previously excluded Curated URLs to show they're no longer excluded
+        1. Creating Delta URLs for previously excluded Curated URLs to show they're no longer excluded/included
         2. Cleaning up any Delta URLs that are now identical to their Curated URL counterparts
-           (these would have only existed to show their exclusion)
+           (these would have only existed to show their exclusion/inclusion)
         """
         DeltaUrl = apps.get_model("sde_collections", "DeltaUrl")
         CuratedUrl = apps.get_model("sde_collections", "CuratedUrl")
@@ -158,14 +159,14 @@ class DeltaExcludePattern(BaseMatchPattern):
             fields["to_delete"] = False
             fields["collection"] = self.collection
 
-            DeltaUrl.objects.get_or_create(**fields)  # Use get_or_create to avoid duplicates
+            DeltaUrl.objects.get_or_create(**fields)
 
-        # Clean up Delta URLs that are now identical to their Curated URLs
+        # Clean up redundant Delta URLs
         for delta_url in self.delta_urls.filter(to_delete=False):
             try:
                 curated_url = CuratedUrl.objects.get(collection=self.collection, url=delta_url.url)
 
-                # Compare all fields except 'id' and 'to_delete'
+                # Check if Delta is now identical to Curated
                 fields_match = all(
                     getattr(delta_url, field.name) == getattr(curated_url, field.name)
                     for field in delta_url._meta.fields
@@ -176,22 +177,27 @@ class DeltaExcludePattern(BaseMatchPattern):
                     delta_url.delete()
 
             except CuratedUrl.DoesNotExist:
-                # If there's no corresponding CuratedUrl, keep the DeltaUrl
                 continue
 
-        # Clear the pattern's relationships
+        # Clear pattern relationships
         self.delta_urls.clear()
         self.curated_urls.clear()
 
-    class Meta(BaseMatchPattern.Meta):
+
+class DeltaExcludePattern(InclusionPatternBase):
+    """Pattern for marking URLs for exclusion."""
+
+    reason = models.TextField("Reason for excluding", default="", blank=True)
+
+    class Meta(InclusionPatternBase.Meta):
         verbose_name = "Delta Exclude Pattern"
         verbose_name_plural = "Delta Exclude Patterns"
 
 
-class DeltaIncludePattern(BaseMatchPattern):
+class DeltaIncludePattern(InclusionPatternBase):
     """Pattern for explicitly including URLs."""
 
-    class Meta(BaseMatchPattern.Meta):
+    class Meta(InclusionPatternBase.Meta):
         verbose_name = "Delta Include Pattern"
         verbose_name_plural = "Delta Include Patterns"
 
