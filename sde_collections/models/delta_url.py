@@ -4,27 +4,56 @@ from urllib.parse import urlparse
 from django.db import models
 
 from .collection_choice_fields import Divisions, DocumentTypes
-from .delta_patterns import DeltaExcludePattern, DeltaTitlePattern
+from .delta_patterns import DeltaExcludePattern, DeltaIncludePattern, DeltaTitlePattern
 
 
 class DeltaUrlQuerySet(models.QuerySet):
     def with_exclusion_status(self):
+        """
+        Annotate queryset with exclusion status, taking into account both exclude and include patterns.
+        Include patterns take precedence over exclude patterns.
+        """
         return self.annotate(
-            excluded=models.Exists(
+            has_exclude=models.Exists(
                 DeltaExcludePattern.delta_urls.through.objects.filter(deltaurl=models.OuterRef("pk"))
-            )
+            ),
+            has_include=models.Exists(
+                DeltaIncludePattern.delta_urls.through.objects.filter(deltaurl=models.OuterRef("pk"))
+            ),
+            excluded=models.Case(
+                # If has_include is True, URL is not excluded regardless of exclude patterns
+                models.When(has_include=True, then=models.Value(False)),
+                # Otherwise, excluded status is determined by presence of exclude pattern
+                default=models.F("has_exclude"),
+                output_field=models.BooleanField(),
+            ),
         )
 
 
 class CuratedUrlQuerySet(models.QuerySet):
     def with_exclusion_status(self):
+        """
+        Annotate queryset with exclusion status, taking into account both exclude and include patterns.
+        Include patterns take precedence over exclude patterns.
+        """
         return self.annotate(
-            excluded=models.Exists(
+            has_exclude=models.Exists(
                 DeltaExcludePattern.curated_urls.through.objects.filter(curatedurl=models.OuterRef("pk"))
-            )
+            ),
+            has_include=models.Exists(
+                DeltaIncludePattern.curated_urls.through.objects.filter(curatedurl=models.OuterRef("pk"))
+            ),
+            excluded=models.Case(
+                # If has_include is True, URL is not excluded regardless of exclude patterns
+                models.When(has_include=True, then=models.Value(False)),
+                # Otherwise, excluded status is determined by presence of exclude pattern
+                default=models.F("has_exclude"),
+                output_field=models.BooleanField(),
+            ),
         )
 
 
+# Manager classes remain unchanged since they just use the updated QuerySets
 class DeltaUrlManager(models.Manager):
     def get_queryset(self):
         return DeltaUrlQuerySet(self.model, using=self._db).with_exclusion_status()
