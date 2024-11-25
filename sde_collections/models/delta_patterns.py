@@ -388,6 +388,35 @@ class DeltaTitlePattern(BaseMatchPattern):
         except (ValueError, ValidationError) as e:
             return None, str(e)
 
+    def get_url_match_count(self):
+        """
+        Get the number of unique URLs this pattern matches across both delta and curated URLs.
+        """
+        delta_urls = set(self.get_matching_delta_urls().values_list("url", flat=True))
+        curated_urls = set(self.get_matching_curated_urls().values_list("url", flat=True))
+        return len(delta_urls.union(curated_urls))
+
+    def is_most_distinctive_pattern(self, url) -> bool:
+        """
+        Determine if this pattern should apply to a URL by checking if it matches
+        the smallest number of URLs among all patterns that match this URL.
+        Returns True if this pattern should be applied.
+        """
+        my_match_count = self.get_url_match_count()
+
+        # Get all patterns that match this URL based on match_pattern regex
+        matching_patterns = DeltaTitlePattern.objects.filter(collection=self.collection).exclude(
+            id=self.id
+        )  # Exclude self to avoid duplicate counting
+
+        # Filter to only patterns that would match this URL and get their counts
+        for pattern in matching_patterns:
+            if re.match(pattern.get_regex_pattern(), url.url):
+                if pattern.get_url_match_count() < my_match_count:
+                    return False
+
+        return True
+
     def apply(self) -> None:
         """
         Apply the title pattern to matching URLs:
@@ -408,6 +437,9 @@ class DeltaTitlePattern(BaseMatchPattern):
 
         # Process each previously unaffected curated URL
         for curated_url in previously_unaffected_curated:
+            if not self.is_most_distinctive_pattern(curated_url):
+                continue
+
             new_title, error = self.generate_title_for_url(curated_url)
 
             if error:
@@ -439,15 +471,19 @@ class DeltaTitlePattern(BaseMatchPattern):
 
         # Update titles for all matching Delta URLs
         for delta_url in self.get_matching_delta_urls():
+            if not self.is_most_distinctive_pattern(delta_url):
+                continue
+
             new_title, error = self.generate_title_for_url(delta_url)
 
             if error:
                 DeltaResolvedTitleError.objects.create(title_pattern=self, delta_url=delta_url, error_string=error)
                 continue
 
-            # Update title and record resolution
+            # Update title and record resolution - key change here
             DeltaResolvedTitle.objects.update_or_create(
-                title_pattern=self, delta_url=delta_url, defaults={"resolved_title": new_title}
+                delta_url=delta_url,  # Only use delta_url for lookup
+                defaults={"title_pattern": self, "resolved_title": new_title},
             )
 
             delta_url.generated_title = new_title
