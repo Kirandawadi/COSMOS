@@ -1,3 +1,5 @@
+# docker-compose -f local.yml run --rm django pytest sde_collections/tests/test_migration.py
+
 import pytest
 from django.test import TestCase
 
