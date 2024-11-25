@@ -2,12 +2,12 @@
 
 import pytest
 
-from sde_collections.models.delta_patterns import DeltaExcludePattern, DeltaTitlePattern
-from sde_collections.models.delta_url import (
-    CuratedUrl,
+from sde_collections.models.delta_patterns import (
+    DeltaExcludePattern,
     DeltaResolvedTitleError,
-    DeltaUrl,
+    DeltaTitlePattern,
 )
+from sde_collections.models.delta_url import CuratedUrl, DeltaUrl
 from sde_collections.tests.factories import (
     CollectionFactory,
     CuratedUrlFactory,
@@ -101,7 +101,6 @@ class TestDeltaTitlePattern:
             collection=collection,
             url="https://example.com/page",
             scraped_title="Sample Title",
-            generated_title="Old Title - Processed",
         )
 
         # Step 2: Create a `DeltaTitlePattern` with a new title pattern
@@ -111,9 +110,6 @@ class TestDeltaTitlePattern:
             match_pattern_type=2,  # MULTI_URL_PATTERN
             title_pattern="{title} - Processed New",
         )
-
-        # Apply the pattern
-        pattern.apply()
 
         # Step 3: A new DeltaUrl should be created with the updated `generated_title`
         delta_url = DeltaUrl.objects.get(url=curated_url.url)
@@ -217,7 +213,7 @@ class TestDeltaTitlePattern:
         curated_url = CuratedUrlFactory(
             collection=collection, url="https://example.com/page", scraped_title="Sample Title"
         )
-        delta_url = DeltaUrlFactory(collection=collection, url="https://example.com/page", scraped_title="Sample Title")
+        delta_url = DeltaUrlFactory(collection=collection, url="https://example.com/page", scraped_title="New Title")
 
         # Create and apply a `DeltaTitlePattern`
         pattern = DeltaTitlePattern.objects.create(
@@ -231,7 +227,8 @@ class TestDeltaTitlePattern:
 
         # Ensure relationships are set
         assert pattern.delta_urls.filter(pk=delta_url.pk).exists()
-        assert pattern.curated_urls.filter(pk=curated_url.pk).exists()
+        # this actually shouldn't match until after promotion
+        assert not pattern.curated_urls.filter(pk=curated_url.pk).exists()
 
         # Unapply the pattern
         pattern.unapply()

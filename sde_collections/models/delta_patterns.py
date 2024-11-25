@@ -40,6 +40,38 @@ class BaseMatchPattern(models.Model):
         related_name="%(class)ss",  # Makes curated_url.deltaincludepatterns.all()
     )
 
+    def get_url_match_count(self):
+        """
+        Get the number of unique URLs this pattern matches across both delta and curated URLs.
+        """
+        delta_urls = set(self.get_matching_delta_urls().values_list("url", flat=True))
+        curated_urls = set(self.get_matching_curated_urls().values_list("url", flat=True))
+        return len(delta_urls.union(curated_urls))
+
+    def is_most_distinctive_pattern(self, url) -> bool:
+        """
+        Determine if this pattern should apply to a URL by checking if it matches
+        the smallest number of URLs among all patterns that match this URL.
+        Returns True if this pattern should be applied.
+        """
+        my_match_count = self.get_url_match_count()
+
+        # Get patterns from same type that affect this URL
+        pattern_class = self.__class__
+        matching_patterns = (
+            pattern_class.objects.filter(collection=self.collection)
+            .filter(models.Q(delta_urls__url=url.url) | models.Q(curated_urls__url=url.url))
+            .exclude(id=self.id)
+            .distinct()
+        )
+
+        # If any matching pattern has a smaller URL set, don't apply
+        for pattern in matching_patterns:
+            if pattern.get_url_match_count() < my_match_count:
+                return False
+
+        return True
+
     def get_regex_pattern(self) -> str:
         """Convert the match pattern into a proper regex based on pattern type."""
         escaped_pattern = re.escape(self.match_pattern)
@@ -240,6 +272,9 @@ class FieldModifyingPattern(BaseMatchPattern):
 
         # Create DeltaUrls only where field value would change
         for curated_url in previously_unaffected_curated:
+            if not self.is_most_distinctive_pattern(curated_url):
+                continue
+
             if (
                 getattr(curated_url, field) == new_value
                 or DeltaUrl.objects.filter(url=curated_url.url, collection=self.collection).exists()
@@ -257,8 +292,13 @@ class FieldModifyingPattern(BaseMatchPattern):
 
             DeltaUrl.objects.create(**fields)
 
-        # Update all matching DeltaUrls with the new field value
-        self.get_matching_delta_urls().update(**{field: new_value})
+        # Update all matching DeltaUrls with the new field value if this is the most distinctive pattern
+        for delta_url in self.get_matching_delta_urls():
+            if self.is_most_distinctive_pattern(delta_url):
+                setattr(delta_url, field, new_value)
+                delta_url.save()
+
+        # Update pattern relationships
         self.update_affected_delta_urls_list()
 
     def unapply(self) -> None:
@@ -388,35 +428,6 @@ class DeltaTitlePattern(BaseMatchPattern):
         except (ValueError, ValidationError) as e:
             return None, str(e)
 
-    def get_url_match_count(self):
-        """
-        Get the number of unique URLs this pattern matches across both delta and curated URLs.
-        """
-        delta_urls = set(self.get_matching_delta_urls().values_list("url", flat=True))
-        curated_urls = set(self.get_matching_curated_urls().values_list("url", flat=True))
-        return len(delta_urls.union(curated_urls))
-
-    def is_most_distinctive_pattern(self, url) -> bool:
-        """
-        Determine if this pattern should apply to a URL by checking if it matches
-        the smallest number of URLs among all patterns that match this URL.
-        Returns True if this pattern should be applied.
-        """
-        my_match_count = self.get_url_match_count()
-
-        # Get all patterns that match this URL based on match_pattern regex
-        matching_patterns = DeltaTitlePattern.objects.filter(collection=self.collection).exclude(
-            id=self.id
-        )  # Exclude self to avoid duplicate counting
-
-        # Filter to only patterns that would match this URL and get their counts
-        for pattern in matching_patterns:
-            if re.match(pattern.get_regex_pattern(), url.url):
-                if pattern.get_url_match_count() < my_match_count:
-                    return False
-
-        return True
-
     def apply(self) -> None:
         """
         Apply the title pattern to matching URLs:
@@ -491,7 +502,6 @@ class DeltaTitlePattern(BaseMatchPattern):
 
         # Update pattern relationships
         self.update_affected_delta_urls_list()
-        self.update_affected_curated_urls_list()
 
     def unapply(self) -> None:
         """
