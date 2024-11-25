@@ -611,30 +611,20 @@ class Collection(models.Model):
 
     def apply_all_patterns(self):
         """Apply all the patterns with debug information."""
-        print("\nApplying patterns:")
 
         for pattern in self.deltaexcludepatterns.all():
-            print(f"\nApplying exclude pattern: {pattern.match_pattern}")
             pattern.apply()
 
         for pattern in self.deltaincludepatterns.all():
-            print(f"\nApplying include pattern: {pattern.match_pattern}")
             pattern.apply()
 
         for pattern in self.deltatitlepatterns.all():
-            print(f"\nApplying title pattern: {pattern.match_pattern}")
             pattern.apply()
 
         for pattern in self.deltadocumenttypepatterns.all():
-            print(f"\nApplying doctype pattern: {pattern.match_pattern}")
-            matching_urls = pattern.get_matching_delta_urls()
-            print(f"Matching URLs: {matching_urls.count()}")
             pattern.apply()
 
         for pattern in self.deltadivisionpatterns.all():
-            print(f"\nApplying division pattern: {pattern.match_pattern}")
-            matching_urls = pattern.get_matching_delta_urls()
-            print(f"Matching URLs: {matching_urls.count()}")
             pattern.apply()
 
     def save(self, *args, **kwargs):
