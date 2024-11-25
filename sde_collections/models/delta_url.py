@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from django.db import models
 
 from .collection_choice_fields import Divisions, DocumentTypes
-from .delta_patterns import DeltaExcludePattern, DeltaIncludePattern, DeltaTitlePattern
+from .delta_patterns import DeltaExcludePattern, DeltaIncludePattern
 
 
 class DeltaUrlQuerySet(models.QuerySet):
@@ -174,31 +174,3 @@ class CuratedUrl(BaseUrl):
         verbose_name = "Curated Urls"
         verbose_name_plural = "Curated Urls"
         ordering = ["url"]
-
-
-class DeltaResolvedTitleBase(models.Model):
-    # TODO: need to understand this logic and whether we need to have thess match to CuratedUrls as well
-    title_pattern = models.ForeignKey(DeltaTitlePattern, on_delete=models.CASCADE)
-    delta_url = models.OneToOneField(DeltaUrl, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        abstract = True
-
-
-class DeltaResolvedTitle(DeltaResolvedTitleBase):
-    resolved_title = models.CharField(blank=True, default="")
-
-    class Meta:
-        verbose_name = "Resolved Title"
-        verbose_name_plural = "Resolved Titles"
-
-    def save(self, *args, **kwargs):
-        # Finds the linked delta URL and deletes DeltaResolvedTitleError objects linked to it
-        DeltaResolvedTitleError.objects.filter(delta_url=self.delta_url).delete()
-        super().save(*args, **kwargs)
-
-
-class DeltaResolvedTitleError(DeltaResolvedTitleBase):
-    error_string = models.TextField(null=False, blank=False)
-    http_status_code = models.IntegerField(null=True, blank=True)
