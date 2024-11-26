@@ -425,7 +425,7 @@ class DeltaTitlePattern(BaseMatchPattern):
 
         try:
             return resolve_title(self.title_pattern, context), None
-        except (ValueError, ValidationError) as e:
+        except Exception as e:
             return None, str(e)
 
     def apply(self) -> None:
