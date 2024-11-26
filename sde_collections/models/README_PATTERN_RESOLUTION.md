@@ -1,32 +1,16 @@
-# URL Pattern Application Strategies
+# Pattern Resolution System
 
-## Strategy 1: Exclusive Patterns
+## Overview
+The pattern system uses a "smallest set priority" strategy for resolving conflicts between overlapping patterns. This applies to title patterns, division patterns, and document type patterns. The pattern that matches the smallest set of URLs takes precedence.
 
-Patterns have exclusive ownership of URLs they match. System prevents creation of overlapping patterns.
+## How It Works
 
-Example:
-```
-Pattern A: */docs/*          # Matches 100 URLs
-Pattern B: */docs/api/*      # Rejected - overlaps with Pattern A
-Pattern C: */blog/*          # Accepted - no overlap
-```
+When multiple patterns match a URL, the system:
+1. Counts how many total URLs each pattern matches
+2. Compares the counts
+3. Applies the pattern that matches the fewest URLs
 
-Benefits:
-- Clear ownership
-- Predictable effects
-- Simple conflict resolution
-- Easy to debug
-
-Drawbacks:
-- Less flexible
-- May require many specific patterns
-- May need pattern deletion/recreation to modify rules
-
-## Strategy 2: Smallest Set Priority
-
-Multiple patterns can match same URLs. Pattern affecting smallest URL set takes precedence.
-
-Example:
+### Example
 ```
 Pattern A: */docs/*          # Matches 100 URLs
 Pattern B: */docs/api/*      # Matches 20 URLs
@@ -37,42 +21,28 @@ For URL "/docs/api/v2/users":
 - Pattern C wins (5 URLs < 20 URLs < 100 URLs)
 ```
 
-Benefits:
-- More flexible rule creation
-- Natural handling of specificity
+## Pattern Types and Resolution
 
-Drawbacks:
-- Complex precedence rules
-- Pattern effects can change as URL sets grow
-- Harder to predict/debug
-- Performance impact from URL set size calculations
-
-## Implementation Notes
-
-Strategy 1:
+### Title Patterns
 ```python
-def save(self, *args, **kwargs):
-    # Check for overlapping patterns
-    overlapping = self.get_matching_delta_urls().filter(
-        deltapatterns__isnull=False
-    ).exists()
-    if overlapping:
-        raise ValidationError("Pattern would overlap existing pattern")
-    super().save(*args, **kwargs)
+# More specific title pattern takes precedence
+Pattern A: */docs/* → title="Documentation"           # 100 URLs
+Pattern B: */docs/api/* → title="API Reference"       # 20 URLs
+Result: URL gets title "API Reference"
 ```
 
-Strategy 2:
+### Division Patterns
 ```python
-def apply(self):
-    matching_urls = self.get_matching_delta_urls()
-    my_url_count = matching_urls.count()
+# More specific division assignment wins
+Pattern A: *.pdf → division="GENERAL"                 # 500 URLs
+Pattern B: */specs/*.pdf → division="ENGINEERING"     # 50 URLs
+Result: URL gets division "ENGINEERING"
+```
 
-    # Only apply if this pattern matches fewer URLs than other matching patterns
-    for url in matching_urls:
-        other_patterns_min_count = url.deltapatterns.annotate(
-            url_count=Count('delta_urls')
-        ).aggregate(Min('url_count'))['url_count__min'] or float('inf')
-
-        if my_url_count <= other_patterns_min_count:
-            self.apply_to_url(url)
+### Document Type Patterns
+```python
+# Most specific document type classification applies
+Pattern A: */docs/* → type="DOCUMENTATION"            # 200 URLs
+Pattern B: */docs/data/* → type="DATA"                # 30 URLs
+Result: URL gets type "DATA"
 ```
