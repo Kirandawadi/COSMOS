@@ -63,7 +63,7 @@ class BaseMatchPattern(models.Model):
             .filter(models.Q(delta_urls__url=url.url) | models.Q(curated_urls__url=url.url))
             .exclude(id=self.id)
             .distinct()
-        )
+        )  # TODO: does this have a distinct urls, or distinct model objects.
 
         # If any matching pattern has a smaller URL set, don't apply
         for pattern in matching_patterns:
